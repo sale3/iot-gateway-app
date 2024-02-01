@@ -125,37 +125,37 @@ def read_conf():
         errorLogger.critical("Cant read app configuration file - ", conf_path, " !")
         return None
 
-# def signup_periodically(key, username, password, time_pattern, url, interval):
-#     '''
-#     Periodically requests device signup.
-#
-#     Parameters
-#     ----------
-#     key: str
-#         API key.
-#     username: str
-#         Device's username,
-#     password: str
-#         Device's password,
-#     time_pattern: str
-#         Device's time pattern.
-#     url: str
-#         Cloud services URL.
-#     interval: int
-#         Time lapse between consecutive requests.
-#
-#     Returns
-#     -------
-#     jwt: str
-#         JSON web token for accessing cloud services.
-#     '''
-#     jwt = None
-#     while jwt is None:
-#         customLogger.debug("Trying to sign up!")
-#         jwt = auth.register(key, username, password, time_pattern, url)
-#         time.sleep(interval)
-#     customLogger.debug("Successful sign up!")
-#     return jwt
+def signup_periodically(key, username, password, time_pattern, url, interval):
+     '''
+    Periodically requests device signup.
+
+     Parameters
+     ----------
+     key: str
+         API key.
+     username: str
+         Device's username,
+     password: str
+         Device's password,
+     time_pattern: str
+         Device's time pattern.
+     url: str
+         Cloud services URL.
+     interval: int
+         Time lapse between consecutive requests.
+
+    Returns
+     -------
+     jwt: str
+        JSON web token for accessing cloud services.
+     '''
+     jwt = None
+     while jwt is None:
+         customLogger.debug("Trying to sign up!")
+         jwt = auth.register(key, username, password, time_pattern, url)
+         time.sleep(interval)
+     customLogger.debug("Successful sign up!")
+     return jwt
 
 def shutdown_controller(temp_handler_flag,load_handler_flag, fuel_handler_flag):
     '''
@@ -315,7 +315,7 @@ def collect_temperature_data(interval, url, jwt, time_pattern, mqtt_address, mqt
             client.connect(mqtt_address, port=mqtt_port,
                            keepalive=abs(round(interval)) * 3)
             client.loop_start()
-        except:
+        except :
             errorLogger.error("Temperature data handler failed to establish connection with MQTT broker!")
         time.sleep(0.2)
     # periodically processes collected data and forwards result to cloud services
@@ -620,7 +620,7 @@ def main():
             customLogger.debug("Workers stopped!")
 
             # finalizing stats
-            stats.combine_stats(temp_stats_queue.get(), load_stats_queue.get(), fuel_stats_queue.get() )
+            stats.combine_stats(temp_stats_queue.get(), load_stats_queue.get(), fuel_stats_queue.get())
             customLogger.debug("Sending device stats data!")
             stats.send_stats()
             # checking jwt, if jwt has expired  app will restart
