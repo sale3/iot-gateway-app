@@ -4,5 +4,6 @@ COPY app-files /app
 WORKDIR /app
 
 RUN pip install -r dependencies.txt
+RUN chmod 777 start.sh
 
-CMD ["python", "app.py"]
+ENTRYPOINT ["/bin/sh", "start.sh"]
