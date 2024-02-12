@@ -30,6 +30,35 @@ services:
         ]
       timeout: 5s
       retries: 3
+  gateway-cloud-broker:
+    image: 'eclipse-mosquitto'
+    ports:
+      - '1884:1884'
+    volumes:
+      - ./gateway-cloud-broker/mosquitto.conf:/mosquitto/config/mosquitto.conf
+      - ./gateway-cloud-broker/users:/mosquitto/config/users
+      - mqtt-data:/mosquitto/data 
+      - mqtt-logs:/mosquitto/log
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "mosquitto_pub",
+          "-h",
+          "localhost",
+          "-p",
+          "1883",
+          "-u",
+          "iot-device",
+          "-P",
+          "10060509",
+          "-t",
+          "test",
+          "-m",
+          "testing"
+        ]
+      timeout: 5s
+      retries: 3
   sensors:
     image: 'sensors'
     stdin_open: true
@@ -44,12 +73,18 @@ services:
   postgresql-db:
     image: 'postgres'
     ports:
-      - '5433:5432'
+      - '5432:5432'
     volumes:
       - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready", "-d", "db_prod"]
+      interval: 30s
+      timeout: 60s
+      retries: 5
+      start_period: 80s 
     environment:
        POSTGRES_DB: iot-platform-database
-       POSTGRES_USER: postgres
+       PGUSER: postgres
        POSTGRES_PASSWORD: mysecretpassword
   iot-cloud-platform:
     image: 'iot-cloud-platform'
@@ -61,13 +96,15 @@ services:
       - TZ=Europe/Belgrade
     depends_on:
         postgresql-db:
-          condition: service_started
+          condition: service_healthy
   iot-gateway:
     image: 'iot-gateway'
+    ports:
+      - '9876:9876'
     stdin_open: true
     tty: true
     volumes:
-      - ./iot-gateway/app_conf.json:/app/app_conf.json
+      - ./iot-gateway/configuration/app_conf.json:/app/configuration/app_conf.json
     environment:
       - TZ=Europe/Belgrade
     depends_on:
