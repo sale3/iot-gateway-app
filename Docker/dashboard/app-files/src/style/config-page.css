@@ -1,0 +1,22 @@
+.config-options{
+    width: 100%;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    position: absolute;
+    top: 60px;
+}
+
+.config-option{
+    display: flex;
+    flex-direction: row;
+}
+
+.buttons{
+    position: absolute !important;
+    top: 20px;
+    right: 25px;
+    display: flex;
+    flex-direction: row;
+    gap: 10px;
+}
