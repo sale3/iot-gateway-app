@@ -1,6 +1,8 @@
 FROM python:3.11
 
-COPY app-files /app
+COPY ./requirements.txt ./dependencies.txt
+RUN pip install -r dependencies.txt
+ADD src/ ./app/
 WORKDIR /app
 
 RUN pip install -r dependencies.txt

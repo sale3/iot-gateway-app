@@ -108,19 +108,19 @@ services:
     environment:
       - TZ=Europe/Belgrade
     depends_on:
-      iot-cloud-platform:
-        condition: service_started
+#      iot-cloud-platform:
+#        condition: service_started
       mqtt-broker:
         condition: service_healthy
-  dashboard:
-    image: 'iot-dashboard'
-    ports:
-      - '3000:3000'
-    env_file:
-      - iot-dashboard/.env
-    depends_on:
-      iot-cloud-platform:
-        condition: service_started
+#  dashboard:
+#    image: 'iot-dashboard'
+#    ports:
+#      - '3000:3000'
+#    env_file:
+#      - iot-dashboard/.env
+#    depends_on:
+#      iot-cloud-platform:
+#        condition: service_started
 volumes:
   mqtt-data:
   mqtt-logs:
