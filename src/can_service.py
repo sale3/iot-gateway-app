@@ -181,11 +181,11 @@ def read_can(execution_flag, config_flag, init_flags, can_lock):
                 notifier.add_listener(can_listener)
                 initial = False
                 config_flag.clear()
-
             time.sleep(period)
+            can.interfaces.pcan.PcanBus.status_is_ok()
     except Exception:
-        errorLogger.error("CAN device not available.")
-        customLogger.debug("CAN device not available.")
+        errorLogger.error("CAN device disconnected.")
+        customLogger.debug("CAN device disconnected.")
 
     can_lock.acquire()
     init_flags.can_initiated = False
