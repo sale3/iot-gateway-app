@@ -2,12 +2,13 @@ import unittest
 import pytest
 import logging
 import json
-import os
+
+from tests.mock_data import create_mock
 
 from src.mqtt_util import MQTTConf, GcbService, \
-    gcb_publisher_on_connect, \
-    gcb_connect, gcb_init_client, gcb_init_publisher, gcb_init_subscriber, \
-    errorLogger, infoLogger
+    gcb_publisher_on_connect, gcb_subscriber_on_connect, gcb_on_message, \
+    gcb_init_client, gcb_init_publisher, gcb_init_subscriber, \
+    errorLogger, infoLogger, customLogger
 from src.config_util import Config, CONF_PATH, \
     GATEWAY_CLOUD_BROKER, ADDRESS, PORT, USERNAME, PASSWORD
 
@@ -61,27 +62,48 @@ class TestMqttUtil(object):
     ])
     def test_gcb_publisher_on_connect(self, rc):
         if rc == 0:
-            with self.TC.assertLogs(infoLogger) as info_logger:
+            with self.TC.assertLogs(infoLogger, logging.INFO) as info_logger:
                 gcb_publisher_on_connect(0, 0, 0, rc, 0)
                 self.TC.assertEqual(info_logger.output,
                                     ["INFO:customInfoLogger:Successfully established connection with MQTT broker!"])
         else:
-            with self.TC.assertLogs(errorLogger) as error_logger:
+            with self.TC.assertLogs(errorLogger, logging.ERROR) as error_logger:
                 gcb_publisher_on_connect(0, 0, 0, rc, 0)
                 self.TC.assertEqual(error_logger.output,
                                     ["ERROR:customErrorLogger:Failed to establish connection with MQTT broker!"])
 
+    @pytest.mark.parametrize('rc', [
+        0, 1, 2, -1, 'a', []
+    ])
     def test_gcb_subscriber_on_connect(self, rc):
         if rc == 0:
-            with self.TC.assertLogs(infoLogger) as info_logger:
-                gcb_publisher_on_connect(0, 0, 0, rc, 0)
+            with self.TC.assertLogs(infoLogger, logging.INFO) as info_logger:
+                gcb_subscriber_on_connect(0, 0, 0, rc, 0)
                 self.TC.assertEqual(info_logger.output,
                                     ["INFO:customInfoLogger:Successfully established connection with MQTT broker!"])
         else:
-            with self.TC.assertLogs(errorLogger) as error_logger:
-                gcb_publisher_on_connect(0, 0, 0, rc, 0)
+            with self.TC.assertLogs(errorLogger, logging.ERROR) as error_logger:
+                gcb_subscriber_on_connect(0, 0, 0, rc, 0)
                 self.TC.assertEqual(error_logger.output,
                                     ["ERROR:customErrorLogger:Failed to establish connection with MQTT broker!"])
+
+    @pytest.mark.parametrize('message', [
+        "test_message"
+    ])
+    def test_gcb_on_message_correct(self, message):
+        # mock object because function does attribute access via "." operator
+        mock = create_mock(payload=bytes(message, 'utf-8'))
+        with self.TC.assertLogs(customLogger, logging.DEBUG) as custom_logger:
+            gcb_on_message(None, None, mock)
+            self.TC.assertEqual(custom_logger.output,
+                                [
+                                    f"DEBUG:customConsoleLogger:GATEWAY_CLOUD_BROKER RECEIVED: {str(mock.payload.decode('utf-8'))}"])
+
+    @pytest.mark.parametrize('message', [
+        123, [], "123", {"a": 123, "b": "123"}, {"payload": 123}, {"payload": "asdfasd"}
+    ])
+    def test_gcb_on_message_wrong(self, message):
+        self.TC.assertRaises(Exception, gcb_on_message, None, None, message)
 
     @pytest.mark.parametrize('client_id,username,password', [
         # From paho mqtt source code, there is no restriction on password type, but there
@@ -129,3 +151,5 @@ class TestMqttUtil(object):
         gcb_service = GcbService("username", "client_id", mqtt_conf)
         gcb_service.stop()
         self.TC.assertTrue(gcb_service.stop_flag.is_set())
+
+
