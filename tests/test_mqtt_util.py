@@ -42,10 +42,6 @@ class TestMqttUtil(object):
                       logging.getLogger('customConsoleLogger'))
         conf.try_open()
 
-        f = open("ffff.txt", "w")
-        f.write(json.dumps(conf.config, indent=4))
-        f.close()
-
         conf.config[GATEWAY_CLOUD_BROKER][ADDRESS] = config_dict["gcb_address"]
         conf.config[GATEWAY_CLOUD_BROKER][PORT] = config_dict["gcb_port"]
         conf.config[GATEWAY_CLOUD_BROKER][USERNAME] = config_dict["gcb_iot_username"]
