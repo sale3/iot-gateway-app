@@ -141,8 +141,11 @@ def read_can(execution_flag, config_flag, init_flags, can_lock):
     customLogger.debug("CAN process started!")
 
     period = 2
-    period_counter = 0
-    previous_message_counter = 0
+    period_counter = 0  # if the counter reaches 5, 10 seconds have passed, and then the check is made whether the bus
+    # is idle
+    previous_message_counter = 0  # the mechanism for bus idleness detection is relied upon a basic check for the
+    # number of received messages. If the number of received messages is equal to the number of the previous check
+    # (the previous check 10 seconds ago), then the bus is idle, and is not transmitting any messages.
 
     can_listener = None
     initial = True
@@ -559,7 +562,7 @@ class CANListener (Listener):
             fuel_client.connect()
         self.fuel_client = fuel_client
 
-        self.message_counter = 0
+        self.message_counter = 0  # counter that counts received messages
 
     def set_temp_client(self, client):
         """
