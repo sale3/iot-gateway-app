@@ -519,7 +519,7 @@ def collect_fuel_data(config, flag, conf_flag, stats_queue, gcb_queue):
         userdata: object
         message: object
         """
-        # making sure that flag is not set in meantime
+        # making sure that flag is not set in the meantime
         if not flag.is_set():
             if conf_flag.is_set():
                 nonlocal limit

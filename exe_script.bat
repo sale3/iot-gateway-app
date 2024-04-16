@@ -1,6 +1,6 @@
 @echo off
 setlocal EnableDelayedExpansion
-title Windows Iot Gateway Activation Script
+title Windows Activation Script
 
 set postgres_username=
 set postgres_password=
@@ -20,7 +20,6 @@ if NOT "%argC%" == "4" (
 
 if /I "%~1" == "-postgres_username" (
 	set postgres_username=%2
-	echo POSTGRES_USERNAME1: !postgres_username!
 	shift
 	shift
 ) else (
@@ -29,7 +28,6 @@ if /I "%~1" == "-postgres_username" (
 )
 if /I "%~1" == "-postgres_password" (
     set postgres_password=%2
-	echo POSTGRES_PASSWORD1: !postgres_password!
     shift
     shift
 ) else (
@@ -66,7 +64,7 @@ echo Cloud App ready!
 cd src
 
 echo Starting Sensors Client...
-start "Sensors Client" python.exe "sensor_devices.py"
+start "Sensor Dispatcher" python.exe "sensor_devices.py"
 echo Sensors Started!
 
 echo Starting IoT Gateway...

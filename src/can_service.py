@@ -141,7 +141,10 @@ def read_can(execution_flag, config_flag, init_flags, can_lock):
     customLogger.debug("CAN process started!")
 
     period = 2
+    period_counter = 0
+    previous_message_counter = 0
 
+    can_listener = None
     initial = True
     notifier = None
     temp_client = None
@@ -173,7 +176,6 @@ def read_can(execution_flag, config_flag, init_flags, can_lock):
                 bus = Bus(interface=interface_value,
                           channel=channel_value,
                           bitrate=bitrate_value)
-
                 temp_client, load_client, fuel_client = init_mqtt_clients(
                     bus, is_can_temp, is_can_load, is_can_fuel, config, execution_flag)
                 notifier = can.Notifier(bus, [], timeout=period)
@@ -182,10 +184,19 @@ def read_can(execution_flag, config_flag, init_flags, can_lock):
                 initial = False
                 config_flag.clear()
             time.sleep(period)
-            can.interfaces.pcan.PcanBus.status_is_ok()
+            period_counter += 1
+
+            if can_listener is not None:
+                if period_counter == 5:
+                    period_counter = 0
+                    if can_listener.message_counter == previous_message_counter:
+                        customLogger.debug("CAN BUS is not active.")
+                previous_message_counter = can_listener.message_counter
+
+
     except Exception:
-        errorLogger.error("CAN device disconnected.")
-        customLogger.debug("CAN device disconnected.")
+        errorLogger.error("CAN BUS has been shut down.")
+        customLogger.debug("CAN BUS has been shut down.")
 
     can_lock.acquire()
     init_flags.can_initiated = False
@@ -524,7 +535,6 @@ class CANListener (Listener):
         set_fuel_client(client): Setter for the fuel MQTT broker client
         on_message_received(msg): Event handler for receiving messages from the CAN bus
     """
-
     def __init__(self, temp_client, load_client, fuel_client):
         """
         Constructor for initializing CANListener object
@@ -548,6 +558,8 @@ class CANListener (Listener):
         if fuel_client is not None:
             fuel_client.connect()
         self.fuel_client = fuel_client
+
+        self.message_counter = 0
 
     def set_temp_client(self, client):
         """
@@ -601,6 +613,9 @@ class CANListener (Listener):
                 Received message from the CAN bus
 
         """
+        self.message_counter += 1
+        if self.message_counter > 5:
+            self.message_counter = 0
         # msg.data is a byte array, need to turn it into a single value
         int_value = int.from_bytes(msg.data, byteorder="big", signed=True)
         value = int_value / 10.0
