@@ -45,7 +45,6 @@ class BetterSignalHandler:
         flags:
            Control flags to be set on received signal.
         """
-
         self.sigs = sigs
         self.flags = flags
         self.original_handlers = []
@@ -66,5 +65,5 @@ class BetterSignalHandler:
         for flag in self.flags:
             flag.set()
 
-        #for sig, original_handler in zip(self.sigs, self.original_handlers):
-            #signal.signal(sig, original_handler)
+        # for sig, original_handler in zip(self.sigs, self.original_handlers):
+            # signal.signal(sig, original_handler)

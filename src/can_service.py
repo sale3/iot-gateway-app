@@ -193,7 +193,6 @@ def read_can(execution_flag, config_flag, init_flags, can_lock):
                         customLogger.debug("CAN BUS is not active.")
                 previous_message_counter = can_listener.message_counter
 
-
     except Exception:
         errorLogger.error("CAN BUS has been shut down.")
         customLogger.debug("CAN BUS has been shut down.")
@@ -535,6 +534,7 @@ class CANListener (Listener):
         set_fuel_client(client): Setter for the fuel MQTT broker client
         on_message_received(msg): Event handler for receiving messages from the CAN bus
     """
+
     def __init__(self, temp_client, load_client, fuel_client):
         """
         Constructor for initializing CANListener object
