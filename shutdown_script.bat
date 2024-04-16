@@ -12,7 +12,7 @@ set rest_window_title=REST API
 
 set main_console_window_title=Windows Activation Script
 
-taskkill /FI "WINDOWTITLE equ %sensors_mosquitto_window_title%" /F >nul 2>&1
+taskkill /FI "WINDOWTITLE eq %sensors_mosquitto_window_title%" /F >nul 2>&1
 if %errorlevel% equ 0 ( echo %sensors_mosquitto_window_title% shut down! )
 
 taskkill /FI "WINDOWTITLE eq %gateway_mosquitto_window_title%" /F >nul 2>&1
