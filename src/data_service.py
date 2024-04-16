@@ -173,4 +173,3 @@ def handle_fuel_data(data, limit, time_format, alarm_client):
 
     payload = {"value": round(value, 2), "time": time_value, "unit": unit}
     return payload
-
