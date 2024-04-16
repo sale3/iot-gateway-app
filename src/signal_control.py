@@ -65,5 +65,5 @@ class BetterSignalHandler:
         for flag in self.flags:
             flag.set()
 
-        # for sig, original_handler in zip(self.sigs, self.original_handlers):
-            # signal.signal(sig, original_handler)
+        for sig, original_handler in zip(self.sigs, self.original_handlers):
+            signal.signal(sig, original_handler)
