@@ -1,0 +1,35 @@
+name: Unit tests
+
+on:
+  pull_request:
+    branches:
+      - develop
+      - master
+  push:
+    branches:
+      - develop
+      - master
+  workflow_dispatch:
+
+jobs:
+  lint:
+    name: Python tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          cache: 'pip' # caching pip dependencies
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest
+          cp ./src/logging.conf logging.conf
+          pytest
+#      - name: Run tests
+#        run: |
+#          chmod +x ./unit_testing.sh
+#          sudo ./unit_testing.sh
