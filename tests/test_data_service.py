@@ -188,21 +188,6 @@ class TestDataService(object):
         ('[ value=123.123 , time=15.04.2024 14:01:17 , unit=l ]', 100),
         ('[ value=1192.2 , time=15.04.2024 14:01:17 , unit=l ]', 1000),
         ('[ value=1192.2 , time=15.04.2024 14:01:17 , unit=l ]', 2000),
-        ('[ value=81.123 , time=15.04.2024 14:01:06 , unit=l ]', 0),
-        ('[ value=81.123 , time=15.04.2024 14:01:06 , unit=l ]', 10),
-        ('[ value=123.123 , time=15.04.2024 14:01:17 , unit=l ]', 100),
-        ('[ value=1192.2 , time=15.04.2024 14:01:17 , unit=l ]', 1000),
-        ('[ value=1192.2 , time=15.04.2024 14:01:17 , unit=l ]', 2000),
-        ('[ value=81.123 , time=15.04.2024 14:01:06 , unit=l ]', 0),
-        ('[ value=81.123 , time=15.04.2024 14:01:06 , unit=l ]', 10),
-        ('[ value=123.123 , time=15.04.2024 14:01:17 , unit=l ]', 100),
-        ('[ value=1192.2 , time=15.04.2024 14:01:17 , unit=l ]', 1000),
-        ('[ value=1192.2 , time=15.04.2024 14:01:17 , unit=l ]', 2000),
-        ('[ value=81.123 , time=15.04.2024 14:01:06 , unit=l ]', 0),
-        ('[ value=81.123 , time=15.04.2024 14:01:06 , unit=l ]', 10),
-        ('[ value=123.123 , time=15.04.2024 14:01:17 , unit=l ]', 100),
-        ('[ value=1192.2 , time=15.04.2024 14:01:17 , unit=l ]', 1000),
-        ('[ value=1192.2 , time=15.04.2024 14:01:17 , unit=l ]', 2000),
     ])
     def test_handle_fuel_data_correct(self, data, limit):
         value = float(data.split(',')[0].split('=')[1])
