@@ -145,7 +145,6 @@ def read_can(execution_flag, config_flag, init_flags, can_lock):
     # if the counter reaches 5, 10 seconds have passed, and then the check is made whether the bus
     # is idle
     period_counter = 0
-    
     # the mechanism for bus idleness detection is relied upon a basic check for the
     # number of received messages. If the number of received messages is equal to the number of the previous check
     # (the previous check 10 seconds ago), then the bus is idle, and is not transmitting any messages.
