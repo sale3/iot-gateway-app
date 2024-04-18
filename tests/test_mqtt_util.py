@@ -1,7 +1,6 @@
 import unittest
 import pytest
 import logging
-import json
 
 from tests.mock_data import create_mock
 
@@ -147,5 +146,4 @@ class TestMqttUtil(object):
         gcb_service = GcbService("username", "client_id", mqtt_conf)
         gcb_service.stop()
         self.TC.assertTrue(gcb_service.stop_flag.is_set())
-
 

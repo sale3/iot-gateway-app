@@ -9,9 +9,11 @@ from src.signal_control import BetterSignalHandler
 class TestSignalControl(object):
     TC = unittest.TestCase()
 
-    def test_better_signal_handler_init_correct(self):
-        signal_handler = BetterSignalHandler([signal.SIGINT, signal.SIGTERM],
-                                             [Event(), Event(), Event()])
+    @pytest.mark.parametrize('sigs,flags', [
+        ([signal.SIGINT, signal.SIGTERM], [Event(), Event(), Event()])
+    ])
+    def test_better_signal_handler_init_correct(self, sigs, flags):
+        signal_handler = BetterSignalHandler(sigs, flags)
 
         # Check that new handler is assigned to every mentioned signal.
         for sig in signal_handler.sigs:
@@ -38,4 +40,3 @@ class TestSignalControl(object):
         # Check that all signal handlers are returned to original.
         for sig, original_handler in zip(signal_handler.sigs, signal_handler.original_handlers):
             self.TC.assertEqual(signal.getsignal(sig), original_handler)
-

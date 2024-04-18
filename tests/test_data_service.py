@@ -1,9 +1,11 @@
 import time
 import unittest
 import pytest
+import logging
 
 from src.data_service import parse_incoming_data, \
-    handle_temperature_data, handle_load_data, handle_fuel_data
+    handle_temperature_data, handle_load_data, handle_fuel_data, \
+    EMPTY_PAYLOAD, customLogger
 
 
 class TestDataService(object):
@@ -180,16 +182,65 @@ class TestDataService(object):
         if not has_error:
             self.TC.fail("Invalid time format not caught.")
 
-    def test_handle_fuel_data_correct(self):
-        # NOTE(stekap):
-        # To me it makes no sense that the data is only sent when the alarm is triggered (value <= limit).
-        # Original code only used 'value <= limit' comparison as filter for data, and now it turns out it
-        # is used as filter and as alarm trigger AT THE SAME TIME, which makes no sense.
-        # Alarm should be handled with another simple filter.
+    @pytest.mark.parametrize('data,limit', [
+        ('[ value=81.123 , time=15.04.2024 14:01:06 , unit=l ]', 0),
+        ('[ value=81.123 , time=15.04.2024 14:01:06 , unit=l ]', 10),
+        ('[ value=123.123 , time=15.04.2024 14:01:17 , unit=l ]', 100),
+        ('[ value=1192.2 , time=15.04.2024 14:01:17 , unit=l ]', 1000),
+        ('[ value=1192.2 , time=15.04.2024 14:01:17 , unit=l ]', 2000),
+        ('[ value=81.123 , time=15.04.2024 14:01:06 , unit=l ]', 0),
+        ('[ value=81.123 , time=15.04.2024 14:01:06 , unit=l ]', 10),
+        ('[ value=123.123 , time=15.04.2024 14:01:17 , unit=l ]', 100),
+        ('[ value=1192.2 , time=15.04.2024 14:01:17 , unit=l ]', 1000),
+        ('[ value=1192.2 , time=15.04.2024 14:01:17 , unit=l ]', 2000),
+        ('[ value=81.123 , time=15.04.2024 14:01:06 , unit=l ]', 0),
+        ('[ value=81.123 , time=15.04.2024 14:01:06 , unit=l ]', 10),
+        ('[ value=123.123 , time=15.04.2024 14:01:17 , unit=l ]', 100),
+        ('[ value=1192.2 , time=15.04.2024 14:01:17 , unit=l ]', 1000),
+        ('[ value=1192.2 , time=15.04.2024 14:01:17 , unit=l ]', 2000),
+        ('[ value=81.123 , time=15.04.2024 14:01:06 , unit=l ]', 0),
+        ('[ value=81.123 , time=15.04.2024 14:01:06 , unit=l ]', 10),
+        ('[ value=123.123 , time=15.04.2024 14:01:17 , unit=l ]', 100),
+        ('[ value=1192.2 , time=15.04.2024 14:01:17 , unit=l ]', 1000),
+        ('[ value=1192.2 , time=15.04.2024 14:01:17 , unit=l ]', 2000),
+    ])
+    def test_handle_fuel_data_correct(self, data, limit):
+        value = float(data.split(',')[0].split('=')[1])
+        unit = data.split(',')[2].split('=')[1].split(' ')[0]
 
-        # FUEL_DATA_FORMAT  : [ value=125.83 , time=15.04.2024 14:01:06 , unit=l ]
+        if value == 0:
+            payload = handle_fuel_data(data, limit, "%d.%m.%Y %H:%M:%S", None)
+            self.TC.assertEqual(payload, EMPTY_PAYLOAD)
+            return
 
-        pass
+        # This is used in order to test logger output even though given branch tries to
+        # contact other part of the system.
+        if value <= limit:
+            with self.TC.assertLogs(customLogger, logging.INFO) as custom_logger:
+                try:
+                    handle_fuel_data(data, limit, "%d.%m.%Y %H:%M:%S", None)
+                except:
+                    self.TC.assertEqual(custom_logger.output,
+                    ["INFO:customConsoleLogger:Fuel is below the designated limit! Sounding the alarm"])
+        else:
+            payload = handle_fuel_data(data, limit, "%d.%m.%Y %H:%M:%S", None)
+            self.TC.assertEqual(payload["value"], round(value, 2))
+            self.TC.assertEqual(payload["unit"], unit)
 
     def test_handle_fuel_data_wrong(self):
+        """
+        def handle_fuel_data(data, limit, time_format, alarm_client):
+            value, unit = parse_incoming_data(str(data), "fuel")
+            if value == 0.0:
+                return EMPTY_PAYLOAD
+            if value <= limit:
+                customLogger.info("Fuel is below the designated limit! Sounding the alarm")
+                alarm_client.publish(FUEL_ALARM_TOPIC, True, QOS)
+
+            time_value = time.strftime(time_format, time.localtime())
+
+            payload = {"value": round(value, 2), "time": time_value, "unit": unit}
+            return payload
+
+        """
         pass
