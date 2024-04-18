@@ -142,6 +142,15 @@ def read_can(execution_flag, config_flag, init_flags, can_lock):
 
     period = 2
 
+    # if the counter reaches 5, 10 seconds have passed, and then the check is made whether the bus
+    # is idle
+    period_counter = 0
+    # the mechanism for bus idleness detection is relied upon a basic check for the
+    # number of received messages. If the number of received messages is equal to the number of the previous check
+    # (the previous check 10 seconds ago), then the bus is idle, and is not transmitting any messages.
+    previous_message_counter = 0
+
+    can_listener = None
     initial = True
     notifier = None
     temp_client = None
@@ -173,7 +182,6 @@ def read_can(execution_flag, config_flag, init_flags, can_lock):
                 bus = Bus(interface=interface_value,
                           channel=channel_value,
                           bitrate=bitrate_value)
-
                 temp_client, load_client, fuel_client = init_mqtt_clients(
                     bus, is_can_temp, is_can_load, is_can_fuel, config, execution_flag)
                 notifier = can.Notifier(bus, [], timeout=period)
@@ -181,11 +189,19 @@ def read_can(execution_flag, config_flag, init_flags, can_lock):
                 notifier.add_listener(can_listener)
                 initial = False
                 config_flag.clear()
-
             time.sleep(period)
+            period_counter += 1
+
+            if can_listener is not None:
+                if period_counter == 5:
+                    period_counter = 0
+                    if can_listener.message_counter == previous_message_counter:
+                        customLogger.debug("CAN BUS is not active.")
+                previous_message_counter = can_listener.message_counter
+
     except Exception:
-        errorLogger.error("CAN device not available.")
-        customLogger.debug("CAN device not available.")
+        errorLogger.error("CAN BUS has been shut down.")
+        customLogger.debug("CAN BUS has been shut down.")
 
     can_lock.acquire()
     init_flags.can_initiated = False
@@ -549,6 +565,9 @@ class CANListener (Listener):
             fuel_client.connect()
         self.fuel_client = fuel_client
 
+        # counter that counts received messages
+        self.message_counter = 0
+
     def set_temp_client(self, client):
         """
         Setter for the temperature MQTT broker client
@@ -601,6 +620,9 @@ class CANListener (Listener):
                 Received message from the CAN bus
 
         """
+        self.message_counter += 1
+        if self.message_counter > 5:
+            self.message_counter = 0
         # msg.data is a byte array, need to turn it into a single value
         int_value = int.from_bytes(msg.data, byteorder="big", signed=True)
         value = int_value / 10.0

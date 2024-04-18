@@ -162,26 +162,14 @@ def handle_fuel_data(data, limit, time_format, alarm_client):
     -------
     http status code
     """
-    try:
-        tokens = data.split(" ")
-        value = float(tokens[1].split("=")[1])
-
-        if value <= limit:
-            customLogger.info("Fuel is below the designated limit! Sounding the alarm")
-
-            alarm_client.publish(FUEL_ALARM_TOPIC, True, QOS)
-
-            unit = "unknown"
-            try:
-                unit = tokens[6].split("=")[1]
-            except BaseException:
-                errorLogger.error("Invalid fuel data format! - " + data)
-            time_value = time.strftime(time_format, time.localtime())
-
-            payload = {"value": round(value, 2), "time": time_value, "unit": unit}
-            return payload
-        else:
-            return EMPTY_PAYLOAD
-    except BaseException:
-        errorLogger.error("Invalid fuel data format! - " + data)
+    value, unit = parse_incoming_data(str(data), "fuel")
+    if value == 0.0:
         return EMPTY_PAYLOAD
+    if value <= limit:
+        customLogger.info("Fuel is below the designated limit! Sounding the alarm")
+        alarm_client.publish(FUEL_ALARM_TOPIC, True, QOS)
+
+    time_value = time.strftime(time_format, time.localtime())
+
+    payload = {"value": round(value, 2), "time": time_value, "unit": unit}
+    return payload

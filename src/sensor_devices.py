@@ -49,7 +49,6 @@ import threading
 import time
 import random
 from pathlib import Path
-
 import signal
 import numpy
 import json
@@ -58,7 +57,6 @@ import paho.mqtt.client as mqtt
 from multiprocessing import Event
 import logging.config
 import logging
-
 from can_service import read_can
 from config_util import ConfFlags, start_config_observer
 from mqtt_utils import MQTTClient
