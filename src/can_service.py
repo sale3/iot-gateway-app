@@ -183,7 +183,8 @@ def read_can(execution_flag, config_flag, init_flags, can_lock):
                 config_flag.clear()
 
             time.sleep(period)
-    except Exception:
+    except Exception as e:
+        customLogger.debug(e)
         errorLogger.error("CAN device not available.")
         customLogger.debug("CAN device not available.")
 
@@ -296,7 +297,7 @@ def init_mqtt_clients(
             errorLogger=errorLogger,
             flag=flag,
             sensor_type="LOAD")
-
+            
         def on_message_load_alarm(client, userdata, msg):
             can_message = can.Message(arbitration_id=0x121,
                                       data=[bool(msg.payload)],
