@@ -304,10 +304,12 @@ def collect_temperature_data(config, flag, conf_flag, stats_queue, gcb_queue):
         """
         if not flag.is_set():
             data = message.payload.decode("utf-8")
-            new_data.append(str(data))
-            customLogger.info("Received temperature data: " + str(data))
             data_value, unit = data_service.parse_incoming_data(
                 str(data), "temperature")
+            if data_value == 0.0:
+                return
+            new_data.append(str(data))
+            customLogger.info("Received temperature data: " + str(data))
             if data_value > 95:
                 # sound the alarm! ask him what do I send
                 customLogger.info(
@@ -413,10 +415,12 @@ def collect_load_data(config, flag, conf_flag, stats_queue, gcb_queue):
         """
         if not flag.is_set():
             data = message.payload.decode("utf-8")
-            new_data.append(str(data))
-            customLogger.info("Received load data: " + str(data))
             data_sum, unit = data_service.parse_incoming_data(
                 str(data), "load")
+            if data_sum == 0.0:
+                return
+            new_data.append(str(data))
+            customLogger.info("Received load data: " + str(data))
             if data_sum > 1000:
                 # sound the alarm!
                 customLogger.info("Load of " + str(data_sum) + " kg is too high! Sounding the alarm!")
@@ -519,7 +523,7 @@ def collect_fuel_data(config, flag, conf_flag, stats_queue, gcb_queue):
         userdata: object
         message: object
         """
-        # making sure that flag is not set in meantime
+        # making sure that flag is not set in the meantime
         if not flag.is_set():
             if conf_flag.is_set():
                 nonlocal limit
