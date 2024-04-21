@@ -60,10 +60,10 @@ import logging.config
 import paho.mqtt.client as mqtt
 import logging
 import time
-from mqtt_utils import MQTTClient
+from src.mqtt_utils import MQTTClient
 from can.listener import Listener
 from can.interface import Bus
-from config_util import Config
+from src.config_util import Config
 
 logging.config.fileConfig('logging.conf')
 infoLogger = logging.getLogger('customInfoLogger')
@@ -71,7 +71,7 @@ errorLogger = logging.getLogger('customErrorLogger')
 customLogger = logging.getLogger("customConsoleLogger")
 
 CONF_FILE_PATH = "configuration/sensor_conf.json"
-APP_CONF_FILE_PATH = "configuration/app_conf.json"
+APP_CONF_FILE_PATH = "src/configuration/app_conf.json"
 
 TRANSPORT_PROTOCOL = "tcp"
 TEMP_TOPIC = "sensors/temperature"
@@ -437,15 +437,15 @@ def on_subscribe_fuel_alarm(client, userdata, flags, rc, props):
     """
     if rc == 0:
         infoLogger.info(
-            "CAN Load alarm client successfully established connection with MQTT broker!")
+            "CAN Fuel alarm client successfully established connection with MQTT broker!")
         customLogger.debug(
-            "CAN Load alarm client successfully established connection with MQTT broker!")
+            "CAN Fuel alarm client successfully established connection with MQTT broker!")
         # client.subscribe(FUEL_ALARM_TOPIC, qos=QOS)
     else:
         errorLogger.error(
-            "CAN Load alarm client failed to establish connection with MQTT broker!")
+            "CAN Fuel alarm client failed to establish connection with MQTT broker!")
         customLogger.critical(
-            "CAN Load alarm client failed to establish connection with MQTT broker!")
+            "CAN Fuel alarm client failed to establish connection with MQTT broker!")
 
 
 def on_connect_temp_sensor(client, userdata, flags, rc, props):
