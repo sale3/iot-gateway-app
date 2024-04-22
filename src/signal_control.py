@@ -45,11 +45,13 @@ class BetterSignalHandler:
         flags:
            Control flags to be set on received signal.
         """
+
         self.sigs = sigs
         self.flags = flags
         self.original_handlers = []
         for sig in self.sigs:
-            self.original_handlers.append(signal.getsignal(sig))
+            if sig > signal.CTRL_BREAK_EVENT:
+                self.original_handlers.append(signal.getsignal(sig))
             signal.signal(sig, self.handler)
 
     def handler(self, signum, frame):
@@ -66,3 +68,4 @@ class BetterSignalHandler:
 
         for sig, original_handler in zip(self.sigs, self.original_handlers):
             signal.signal(sig, original_handler)
+

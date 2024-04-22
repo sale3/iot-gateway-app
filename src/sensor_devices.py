@@ -57,11 +57,11 @@ import paho.mqtt.client as mqtt
 from multiprocessing import Event
 import logging.config
 import logging
-from can_service import read_can
-from config_util import ConfFlags, start_config_observer
-from mqtt_utils import MQTTClient
-from config_util import Config
-from signal_control import BetterSignalHandler
+from src.can_service import read_can
+from src.config_util import ConfFlags, start_config_observer
+from src.mqtt_utils import MQTTClient
+from src.config_util import Config
+from src.signal_control import BetterSignalHandler
 
 # setting up loggers
 logging_path = Path(__file__).parent / 'logging.conf'
