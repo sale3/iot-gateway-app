@@ -177,3 +177,4 @@ pyrightconfig.json
 
 src/*.log
 *.jar
+*.log

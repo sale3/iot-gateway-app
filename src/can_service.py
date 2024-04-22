@@ -71,7 +71,7 @@ errorLogger = logging.getLogger('customErrorLogger')
 customLogger = logging.getLogger("customConsoleLogger")
 
 CONF_FILE_PATH = "configuration/sensor_conf.json"
-APP_CONF_FILE_PATH = "src/configuration/app_conf.json"
+APP_CONF_FILE_PATH = "configuration/app_conf.json"
 
 TRANSPORT_PROTOCOL = "tcp"
 TEMP_TOPIC = "sensors/temperature"

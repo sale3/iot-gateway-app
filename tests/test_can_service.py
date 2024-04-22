@@ -3,21 +3,25 @@ import multiprocessing
 import threading
 import time
 import unittest
+from pathlib import Path
 
 import can
 import pytest
-
-from src.can_service import read_can, CAN_GENERAL_SETTINGS, INTERFACE, CHANNEL, BITRATE, init_mqtt_clients, \
+from src.can_service import read_can, init_mqtt_clients, \
     on_subscribe_temp_alarm, on_subscribe_load_alarm, on_subscribe_fuel_alarm, on_connect_temp_sensor, \
     on_connect_load_sensor, on_connect_fuel_sensor, CANListener
+from src.config_util import CAN_GENERAL_SETTINGS, INTERFACE, CHANNEL, BITRATE
 from src.config_util import Config
 from src.sensor_devices import InitFlags
+from src.can_service import infoLogger, customLogger, errorLogger
 
 logging.config.fileConfig('logging.conf')
-infoLogger = logging.getLogger('customInfoLogger')
-customLogger = logging.getLogger('customConsoleLogger')
-errorLogger = logging.getLogger('customErrorLogger')
-APP_CONF_FILE_PATH = "src/configuration/app_conf.json"
+testInfoLogger = logging.getLogger('testInfoLogger')
+testCustomLogger = logging.getLogger('testConsoleLogger')
+testErrorLogger = logging.getLogger('testErrorLogger')
+
+APP_CONF_FILE_PATH = "configuration/app_conf.json"
+
 
 class TestCanService(object):
     TC = unittest.TestCase()
@@ -47,22 +51,32 @@ class TestCanService(object):
         can_lock = threading.Lock()
         init_flags = InitFlags()
 
-        can_sensor = threading.Thread(
-            target=read_can,
-            args=(
-                execution_flag,
-                config_flag,
-                init_flags,
-                can_lock))
-        can_sensor.start()
-
-
-        time.sleep(1)
         with self.TC.assertLogs(customLogger, logging.DEBUG) as custom_logger:
-            print(custom_logger.output)
-            self.TC.assertEqual(["DEBUG:customConsoleLogger:CAN process shutdown!"], custom_logger.output)
+            can_sensor = threading.Thread(
+                target=read_can,
+                args=(
+                    execution_flag,
+                    config_flag,
+                    init_flags,
+                    can_lock))
+            can_sensor.start()
+            time.sleep(2)
+            self.TC.assertEqual(["DEBUG:customConsoleLogger:CAN process shutdown!"], [custom_logger.output[len(custom_logger.output) - 1]])
+            execution_flag.set()
+            execution_flag.clear()
         with self.TC.assertLogs(errorLogger, logging.ERROR) as error_logger:
-            self.TC.assertEqual(["ERROR:customErrorLogger:CAN BUS has been shut down."], error_logger.output)
+            can_sensor = threading.Thread(
+                target=read_can,
+                args=(
+                    execution_flag,
+                    config_flag,
+                    init_flags,
+                    can_lock))
+            can_sensor.start()
+            time.sleep(2)
+            self.TC.assertEqual(["ERROR:customErrorLogger:CAN BUS has been shut down."], [error_logger.output[len(error_logger.output) - 1]])
+            execution_flag.set()
+            execution_flag.clear()
 
         execution_flag.set()
         config.config[CAN_GENERAL_SETTINGS][INTERFACE] = saved_interface
@@ -86,87 +100,104 @@ class TestCanService(object):
 
     def test_on_subscribe_temp_alarm(self):
 
-        on_subscribe_temp_alarm(None, None, None, 0, None)
+
         with self.TC.assertLogs(infoLogger, logging.INFO) as info_logger:
+            on_subscribe_temp_alarm(None, None, None, 0, None)
             self.TC.assertEqual(["INFO:customInfoLogger:CAN Temperature alarm client successfully established connection with MQTT broker!"], info_logger.output)
         with self.TC.assertLogs(customLogger, logging.DEBUG) as custom_logger:
+            on_subscribe_temp_alarm(None, None, None, 0, None)
             self.TC.assertEqual(["DEBUG:customConsoleLogger:CAN Temperature alarm client successfully established connection with MQTT broker!"], custom_logger.output)
 
-        on_subscribe_temp_alarm(None, None, None, 1, None)
-        with self.TC.assertLogs(errorLogger, logging.INFO) as error_logger:
+        with self.TC.assertLogs(errorLogger, logging.ERROR) as error_logger:
+            on_subscribe_temp_alarm(None, None, None, 1, None)
             self.TC.assertEqual(["ERROR:customErrorLogger:CAN Temperature alarm client failed to establish connection with MQTT broker!"], error_logger.output)
         with self.TC.assertLogs(customLogger, logging.CRITICAL) as custom_logger:
+            on_subscribe_temp_alarm(None, None, None, 1, None)
             self.TC.assertEqual(["CRITICAL:customConsoleLogger:CAN Temperature alarm client failed to establish connection with MQTT broker!"], custom_logger.output)
 
     def test_on_subscribe_load_alarm(self):
 
-        on_subscribe_load_alarm(None, None, None, 0, None)
         with self.TC.assertLogs(infoLogger, logging.INFO) as info_logger:
+            on_subscribe_load_alarm(None, None, None, 0, None)
             self.TC.assertEqual(["INFO:customInfoLogger:CAN Load alarm client successfully established connection with MQTT broker!"], info_logger.output)
         with self.TC.assertLogs(customLogger, logging.DEBUG) as custom_logger:
+            on_subscribe_load_alarm(None, None, None, 0, None)
             self.TC.assertEqual(["DEBUG:customConsoleLogger:CAN Load alarm client successfully established connection with MQTT broker!"], custom_logger.output)
 
-        on_subscribe_load_alarm(None, None, None, 1, None)
-        with self.TC.assertLogs(errorLogger, logging.INFO) as error_logger:
+
+        with self.TC.assertLogs(errorLogger, logging.ERROR) as error_logger:
+            on_subscribe_load_alarm(None, None, None, 1, None)
             self.TC.assertEqual(["ERROR:customErrorLogger:CAN Load alarm client failed to establish connection with MQTT broker!"], error_logger.output)
         with self.TC.assertLogs(customLogger, logging.CRITICAL) as custom_logger:
+            on_subscribe_load_alarm(None, None, None, 1, None)
             self.TC.assertEqual(["CRITICAL:customConsoleLogger:CAN Load alarm client failed to establish connection with MQTT broker!"], custom_logger.output)
 
-    def test_on_subscribe_load_alarm(self):
+    def test_on_subscribe_fuel_alarm(self):
 
-        on_subscribe_fuel_alarm(None, None, None, 0, None)
         with self.TC.assertLogs(infoLogger, logging.INFO) as info_logger:
+            on_subscribe_fuel_alarm(None, None, None, 0, None)
             self.TC.assertEqual(["INFO:customInfoLogger:CAN Fuel alarm client successfully established connection with MQTT broker!"], info_logger.output)
         with self.TC.assertLogs(customLogger, logging.DEBUG) as custom_logger:
+            on_subscribe_fuel_alarm(None, None, None, 0, None)
             self.TC.assertEqual(["DEBUG:customConsoleLogger:CAN Fuel alarm client successfully established connection with MQTT broker!"], custom_logger.output)
 
-        on_subscribe_fuel_alarm(None, None, None, 1, None)
-        with self.TC.assertLogs(errorLogger, logging.INFO) as error_logger:
+        with self.TC.assertLogs(errorLogger, logging.ERROR) as error_logger:
+            on_subscribe_fuel_alarm(None, None, None, 1, None)
             self.TC.assertEqual(["ERROR:customErrorLogger:CAN Fuel alarm client failed to establish connection with MQTT broker!"], error_logger.output)
         with self.TC.assertLogs(customLogger, logging.CRITICAL) as custom_logger:
+            on_subscribe_fuel_alarm(None, None, None, 1, None)
             self.TC.assertEqual(["CRITICAL:customConsoleLogger:CAN Fuel alarm client failed to establish connection with MQTT broker!"], custom_logger.output)
 
     def test_on_connect_temp_sensor(self):
-        with self.TC.assertRaises(AttributeError):
-            on_connect_temp_sensor(None, None, None, 0, None)
         with self.TC.assertLogs(infoLogger, logging.INFO) as info_logger:
+            with self.TC.assertRaises(AttributeError):
+                on_connect_temp_sensor(None, None, None, 0, None)
             self.TC.assertEqual(["INFO:customInfoLogger:CAN Temperature sensor successfully established connection with MQTT broker!"], info_logger.output)
         with self.TC.assertLogs(customLogger, logging.DEBUG) as custom_logger:
+            with self.TC.assertRaises(AttributeError):
+                on_connect_temp_sensor(None, None, None, 0, None)
             self.TC.assertEqual(["DEBUG:customConsoleLogger:CAN Temperature sensor successfully established connection with MQTT broker!"], custom_logger.output)
 
-        on_connect_temp_sensor(None, None, None, 1, None)
-        with self.TC.assertLogs(errorLogger, logging.INFO) as error_logger:
-            self.TC.assertEqual(["ERROR:customErrorLogger:CAN Temperature sensor successfully established connection with MQTT broker!"], error_logger.output)
+        with self.TC.assertLogs(errorLogger, logging.ERROR) as error_logger:
+            on_connect_temp_sensor(None, None, None, 1, None)
+            self.TC.assertEqual(["ERROR:customErrorLogger:CAN Temperature sensor failed to establish connection with MQTT broker!"], error_logger.output)
         with self.TC.assertLogs(customLogger, logging.DEBUG) as custom_logger:
-            self.TC.assertEqual(["CRITICAL:customConsoleLogger:CAN Temperature sensor successfully established connection with MQTT broker!"], custom_logger.output)
+            on_connect_temp_sensor(None, None, None, 1, None)
+            self.TC.assertEqual(["CRITICAL:customConsoleLogger:CAN Temperature sensor failed to establish connection with MQTT broker!"], custom_logger.output)
 
     def test_on_connect_load_sensor(self):
-        with self.TC.assertRaises(AttributeError):
-            on_connect_load_sensor(None, None, None, 0, None)
         with self.TC.assertLogs(infoLogger, logging.INFO) as info_logger:
+            with self.TC.assertRaises(AttributeError):
+                on_connect_load_sensor(None, None, None, 0, None)
             self.TC.assertEqual(["INFO:customInfoLogger:CAN Load sensor successfully established connection with MQTT broker!"], info_logger.output)
         with self.TC.assertLogs(customLogger, logging.DEBUG) as custom_logger:
+            with self.TC.assertRaises(AttributeError):
+                on_connect_load_sensor(None, None, None, 0, None)
             self.TC.assertEqual(["DEBUG:customConsoleLogger:CAN Load sensor successfully established connection with MQTT broker!"], custom_logger.output)
 
-        on_connect_load_sensor(None, None, None, 1, None)
-        with self.TC.assertLogs(errorLogger, logging.INFO) as error_logger:
-            self.TC.assertEqual(["ERROR:customErrorLogger:CAN Load sensor successfully established connection with MQTT broker!"], error_logger.output)
+        with self.TC.assertLogs(errorLogger, logging.ERROR) as error_logger:
+            on_connect_load_sensor(None, None, None, 1, None)
+            self.TC.assertEqual(["ERROR:customErrorLogger:CAN Load sensor failed to establish connection with MQTT broker!"], error_logger.output)
         with self.TC.assertLogs(customLogger, logging.CRITICAL) as custom_logger:
-            self.TC.assertEqual(["CRITICAL:customConsoleLogger:CAN Load sensor successfully established connection with MQTT broker!"], custom_logger.output)
+            on_connect_load_sensor(None, None, None, 1, None)
+            self.TC.assertEqual(["CRITICAL:customConsoleLogger:CAN Load sensor failed to establish connection with MQTT broker!"], custom_logger.output)
 
     def test_on_connect_fuel_sensor(self):
-        with self.TC.assertRaises(AttributeError):
-            on_connect_fuel_sensor(None, None, None, 0, None)
         with self.TC.assertLogs(infoLogger, logging.INFO) as info_logger:
+            with self.TC.assertRaises(AttributeError):
+                on_connect_fuel_sensor(None, None, None, 0, None)
             self.TC.assertEqual(["INFO:customInfoLogger:CAN Fuel sensor successfully established connection with MQTT broker!"], info_logger.output)
         with self.TC.assertLogs(customLogger, logging.DEBUG) as custom_logger:
+            with self.TC.assertRaises(AttributeError):
+                on_connect_fuel_sensor(None, None, None, 0, None)
             self.TC.assertEqual(["DEBUG:customConsoleLogger:CAN Fuel sensor successfully established connection with MQTT broker!"], custom_logger.output)
 
-        on_connect_fuel_sensor(None, None, None, 1, None)
-        with self.TC.assertLogs(errorLogger, logging.INFO) as error_logger:
-            self.TC.assertEqual(["ERROR:customErrorLogger:CAN Fuel sensor successfully established connection with MQTT broker!"], error_logger.output)
+        with self.TC.assertLogs(errorLogger, logging.ERROR) as error_logger:
+            on_connect_fuel_sensor(None, None, None, 1, None)
+            self.TC.assertEqual(["ERROR:customErrorLogger:CAN Fuel sensor failed to establish connection with MQTT broker!"], error_logger.output)
         with self.TC.assertLogs(customLogger, logging.CRITICAL) as custom_logger:
-            self.TC.assertEqual(["CRITICAL:customConsoleLogger:CAN Fuel sensor successfully established connection with MQTT broker!"], custom_logger.output)
+            on_connect_fuel_sensor(None, None, None, 1, None)
+            self.TC.assertEqual(["CRITICAL:customConsoleLogger:CAN Fuel sensor failed to establish connection with MQTT broker!"], custom_logger.output)
 
     def test_can_listener(self):
         can_listener = CANListener(None, None, None)
