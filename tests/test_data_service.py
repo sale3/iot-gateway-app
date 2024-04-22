@@ -92,7 +92,7 @@ class TestDataService(object):
         "%d.%m.%Y %f %a %qq %g %l %H:%M:%S",
         "asdffb -. asdf"
     ])
-    def dont_test_handle_temperature_data_wrong_time_format(self, time_format):
+    def test_handle_temperature_data_wrong_time_format(self, time_format):
         data = [
             '[ value=-2.0 , time=15.04.2024 14:01:06 , unit=C ]',
             '[ value=-2.0 , time=15.04.2024 14:01:17 , unit=C ]'
@@ -166,7 +166,7 @@ class TestDataService(object):
         "%d.%m.%Y %f %a %qq %g %l %H:%M:%S",
         "asdffb -. asdf"
     ])
-    def dont_test_handle_load_data_wrong_time_format(self, time_format):
+    def test_handle_load_data_wrong_time_format(self, time_format):
         data = [
             '[ value=1233.0 , time=15.04.2024 14:01:06 , unit=C ]',
             '[ value=1233.0 , time=15.04.2024 14:01:17 , unit=C ]'
@@ -183,7 +183,7 @@ class TestDataService(object):
             self.TC.fail("Invalid time format not caught.")
 
     @pytest.mark.parametrize('data,limit', [
-        ('[ value=81.123 , time=15.04.2024 14:01:06 , unit=l ]', 0),
+        ('[ value=0 , time=15.04.2024 14:01:06 , unit=l ]', 0),
         ('[ value=81.123 , time=15.04.2024 14:01:06 , unit=l ]', 10),
         ('[ value=123.123 , time=15.04.2024 14:01:17 , unit=l ]', 100),
         ('[ value=1192.2 , time=15.04.2024 14:01:17 , unit=l ]', 1000),
