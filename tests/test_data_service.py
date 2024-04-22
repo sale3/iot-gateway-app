@@ -189,7 +189,7 @@ class TestDataService(object):
         ('[ value=1192.2 , time=15.04.2024 14:01:17 , unit=l ]', 1000),
         ('[ value=1192.2 , time=15.04.2024 14:01:17 , unit=l ]', 2000),
     ])
-    def test_handle_fuel_data_correct(self, data, limit):
+    def test_handle_fuel_data(self, data, limit):
         value = float(data.split(',')[0].split('=')[1])
         unit = data.split(',')[2].split('=')[1].split(' ')[0]
 
@@ -212,20 +212,3 @@ class TestDataService(object):
             self.TC.assertEqual(payload["value"], round(value, 2))
             self.TC.assertEqual(payload["unit"], unit)
 
-    def test_handle_fuel_data_wrong(self):
-        """
-        def handle_fuel_data(data, limit, time_format, alarm_client):
-            value, unit = parse_incoming_data(str(data), "fuel")
-            if value == 0.0:
-                return EMPTY_PAYLOAD
-            if value <= limit:
-                customLogger.info("Fuel is below the designated limit! Sounding the alarm")
-                alarm_client.publish(FUEL_ALARM_TOPIC, True, QOS)
-
-            time_value = time.strftime(time_format, time.localtime())
-
-            payload = {"value": round(value, 2), "time": time_value, "unit": unit}
-            return payload
-
-        """
-        pass
