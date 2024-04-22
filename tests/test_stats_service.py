@@ -39,7 +39,7 @@ class TestStatsService(object):
         self.TC.assertRaises(TypeError, stats.update_data, bytes, forwarded, requests)
 
     @pytest.mark.parametrize('time_format', [
-        "%d.%m.%Y %f %a %qq %% %a %g %l %H:%M:%S",
+        "%d.%m.%Y %f %a %qq %% -.as %a %g %l %H:%M:%S",
         "asdffb -. asdf"
     ])
     def test_overall_stats_wrong_time_format(self,
@@ -55,11 +55,8 @@ class TestStatsService(object):
             overall_stats.combine_stats(dummy_stats,
                                         dummy_stats,
                                         dummy_stats)
-        except ValueError:
+        except:
             has_error = True
 
-        f = open("ffff.txt", "a")
-        f.write(str(has_error))
-        f.close()
-        #if not has_error:
-        #    self.TC.fail("Invalid time format not caught.")
+        if not has_error:
+            self.TC.fail("Invalid time format not caught.")

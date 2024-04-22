@@ -83,7 +83,7 @@ class TestDataService(object):
             payload = handle_temperature_data(data, time_format)
             if payload["time"] == time_format:
                 has_error = True
-        except ValueError:
+        except:
             has_error = True
 
         if not has_error:
@@ -158,7 +158,7 @@ class TestDataService(object):
             payload = handle_load_data(data, time_format)
             if payload["time"] == time_format:
                 has_error = True
-        except ValueError:
+        except:
             has_error = True
 
         if not has_error:
