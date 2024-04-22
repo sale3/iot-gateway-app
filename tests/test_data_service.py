@@ -58,7 +58,8 @@ class TestDataService(object):
     ])
     def test_handle_temperature_data_wrong_unit(self, data):
         # NOTE(stekap):
-        # If turns out that the unit that is assigned to payload is always the last unit,
+        # If turns out that the unit that is assigned
+        # to payload is always the last unit,
         # including the possibility of it being 'unknown'.
         # Not sure why it works like this, but it doesn't make much sense.
         unit = "unknown"
@@ -69,7 +70,7 @@ class TestDataService(object):
         self.TC.assertEqual(payload["unit"], unit)
 
     @pytest.mark.parametrize('time_format', [
-        "%d.%m.%Y %f %a %qq %g %l %H:%M:%S",
+        "%d.%m.%Y %f %a %qq %% %a %g %l %H:%M:%S",
         "asdffb -. asdf"
     ])
     def test_handle_temperature_data_wrong_time_format(self, time_format):
@@ -132,7 +133,8 @@ class TestDataService(object):
     ])
     def test_handle_load_data_wrong_unit(self, data):
         # NOTE(stekap):
-        # If turns out that the unit that is assigned to payload is always the last unit,
+        # If turns out that the unit that is assigned
+        # to payload is always the last unit,
         # including the possibility of it being 'unknown'.
         # Not sure why it works like this, but it doesn't make much sense.
         unit = "unknown"
@@ -143,7 +145,7 @@ class TestDataService(object):
         self.TC.assertEqual(payload["unit"], unit)
 
     @pytest.mark.parametrize('time_format', [
-        "%d.%m.%Y %f %a %qq %g %l %H:%M:%S",
+        "%d.%m.%Y %f %a %qq %% %a %g %l %H:%M:%S",
         "asdffb -. asdf"
     ])
     def test_handle_load_data_wrong_time_format(self, time_format):
@@ -178,7 +180,8 @@ class TestDataService(object):
             self.TC.assertEqual(payload, EMPTY_PAYLOAD)
             return
 
-        # This is used in order to test logger output even though given branch tries to
+        # This is used in order to test logger output
+        # even though given branch tries to
         # contact other part of the system.
         if value <= limit:
             with self.TC.assertLogs(customLogger, logging.INFO) as custom_logger:
