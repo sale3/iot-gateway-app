@@ -250,7 +250,7 @@ def init_mqtt_clients(
         config,
         flag):
     """
-    Used for stopping all CAN functionalities
+    Used for initializing all MQTT connections
 
     Args:
     ----

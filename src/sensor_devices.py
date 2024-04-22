@@ -659,6 +659,12 @@ def sensors_devices(temp_flag, load_flag, fuel_flag, can_flag, config_flags,
     temp_flag : multiprocessing.Event
     load_flag : multiprocessing.Event
     fuel_flag : multiprocessing.Event
+    config_flags : config_util.ConfFlags
+    init_flags : sensors_devices.InitFlags
+    temp_lock : threading.Lock
+    load_lock : threading.Lock
+    fuel_lock : threading.Lock
+    can_lock : threading.Lock
 
     Returns
     -------
