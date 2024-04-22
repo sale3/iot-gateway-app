@@ -2,9 +2,10 @@ import unittest
 import pytest
 import logging
 
-from tests.mock_data import create_mock
+from tests.mock_util import create_mock
 
 from src.mqtt_util import MQTTConf, GcbService, \
+    gcb_on_publish, \
     gcb_publisher_on_connect, gcb_subscriber_on_connect, gcb_on_message, \
     gcb_init_client, gcb_init_publisher, gcb_init_subscriber, \
     errorLogger, infoLogger, customLogger
@@ -82,6 +83,10 @@ class TestMqttUtil(object):
                 self.TC.assertEqual(error_logger.output,
                                     ["ERROR:customErrorLogger:Failed to establish connection with MQTT broker!"])
 
+    def test_gcb_on_publish(self):
+        gcb_on_publish(None, None, None)
+        pass
+
     @pytest.mark.parametrize('message', [
         "test_message"
     ])
@@ -146,4 +151,5 @@ class TestMqttUtil(object):
         gcb_service = GcbService("username", "client_id", mqtt_conf)
         gcb_service.stop()
         self.TC.assertTrue(gcb_service.stop_flag.is_set())
+        gcb_service.__del__()
 
