@@ -621,6 +621,7 @@ class CANListener (Listener):
                 Received message from the CAN bus
 
         """
+        print(str(msg.data))
         self.message_counter += 1
         if self.message_counter > 5:
             self.message_counter = 0

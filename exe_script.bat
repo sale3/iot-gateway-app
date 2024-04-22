@@ -55,11 +55,9 @@ set "REACT_APP_API_URL=http://localhost:8080/iot-cloud-platform"
 set "HISTORY=1"
 
 echo Setting up database...
-<<<<<<< HEAD
-psql -U postgres -c "CREATE DATABASE \"iot-platform-database\""
-=======
+
 psql -U postgres -c "CREATE DATABASE \"iot-platform-database\"" > nul 2> nul
->>>>>>> 419bb0cf9cdeda47925db2942536d054a3edb43f
+
 psql -U postgres -c "GRANT ALL PRIVILEGES ON DATABASE \"iot-platform-database\" TO postgres" > nul 2> nul
 echo Database ready!
 
@@ -73,11 +71,7 @@ echo Cloud App ready!
 cd src
 
 echo Starting Sensors Client...
-<<<<<<< HEAD
-start "Sensors Client" python.exe "sensor_devices.py"
-=======
 start "Sensor Dispatcher" python.exe "sensor_devices.py"
->>>>>>> 419bb0cf9cdeda47925db2942536d054a3edb43f
 echo Sensors Started!
 
 echo Starting IoT Gateway...
@@ -86,6 +80,7 @@ echo IoT Gateway started!
 
 start "REST API" python.exe "rest_api.py"
 
+cd ..
 REM cd ..
 REM dir
 REM cd ..

@@ -9,7 +9,7 @@ import pytest
 
 from src.can_service import read_can, CAN_GENERAL_SETTINGS, INTERFACE, CHANNEL, BITRATE, init_mqtt_clients, \
     on_subscribe_temp_alarm, on_subscribe_load_alarm, on_subscribe_fuel_alarm, on_connect_temp_sensor, \
-    on_connect_load_sensor, on_connect_fuel_sensor
+    on_connect_load_sensor, on_connect_fuel_sensor, CANListener
 from src.config_util import Config
 from src.sensor_devices import InitFlags
 
@@ -167,3 +167,20 @@ class TestCanService(object):
             self.TC.assertEqual(["ERROR:customErrorLogger:CAN Fuel sensor successfully established connection with MQTT broker!"], error_logger.output)
         with self.TC.assertLogs(customLogger, logging.CRITICAL) as custom_logger:
             self.TC.assertEqual(["CRITICAL:customConsoleLogger:CAN Fuel sensor successfully established connection with MQTT broker!"], custom_logger.output)
+
+    def test_can_listener(self):
+        can_listener = CANListener(None, None, None)
+
+        self.TC.assertIsNone(can_listener.temp_client, None)
+        self.TC.assertIsNone(can_listener.load_client, None)
+        self.TC.assertIsNone(can_listener.fuel_client, None)
+
+        can_listener.set_temp_client(None)
+        self.TC.assertIsNone(can_listener.temp_client)
+
+        can_listener.set_load_client(None)
+        self.TC.assertIsNone(can_listener.load_client)
+
+        can_listener.set_fuel_client(None)
+        self.TC.assertIsNone(can_listener.fuel_client)
+
