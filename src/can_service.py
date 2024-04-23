@@ -156,7 +156,6 @@ def read_can(execution_flag, config_flag, init_flags, can_lock):
     temp_client = None
     load_client = None
     fuel_client = None
-
     bus = None
 
     try:
@@ -200,14 +199,12 @@ def read_can(execution_flag, config_flag, init_flags, can_lock):
                         customLogger.debug("CAN BUS is not active.")
                 previous_message_counter = can_listener.message_counter
 
-    except Exception:
+    except Exception as e:
         errorLogger.error("CAN BUS has been shut down.")
         customLogger.debug("CAN BUS has been shut down.")
-
     can_lock.acquire()
     init_flags.can_initiated = False
     can_lock.release()
-
     stop_can(notifier, bus, temp_client, load_client, fuel_client)
     execution_flag.clear()
     customLogger.debug("CAN process shutdown!")
@@ -621,10 +618,10 @@ class CANListener (Listener):
                 Received message from the CAN bus
 
         """
-        print(str(msg.data))
         self.message_counter += 1
         if self.message_counter > 5:
             self.message_counter = 0
+
         # msg.data is a byte array, need to turn it into a single value
         int_value = int.from_bytes(msg.data, byteorder="big", signed=True)
         value = int_value / 10.0

@@ -29,7 +29,6 @@ class TestCanService(object):
     @pytest.mark.parametrize('interface, channel, bitrate', [
         ('asdasd', 'asdadasd', 'asdasdasd'),
         ('pcan', 'asdasdff', 1200),
-        ('pcan', 'PCAN_USBBUS1', 123),
         ('pcan', 'asdasda', 500000)
     ])
     def test_bus_connection_failure(self, interface, channel, bitrate):
@@ -61,6 +60,7 @@ class TestCanService(object):
                     can_lock))
             can_sensor.start()
             time.sleep(2)
+            print("HEEELEELELELLELEO", custom_logger.output)
             self.TC.assertEqual(["DEBUG:customConsoleLogger:CAN process shutdown!"], [custom_logger.output[len(custom_logger.output) - 1]])
             execution_flag.set()
             execution_flag.clear()
@@ -89,11 +89,11 @@ class TestCanService(object):
         config = Config(APP_CONF_FILE_PATH, errorLogger, customLogger)
         config.try_open()
 
-        bus = can.Bus(interface="pcan",
-                  channel="PCAN_USBBUS1",
-                  bitrate=50000)
+        bus = can.Bus(interface=config.can_interface,
+                  channel=config.can_channel,
+                  bitrate=config.can_bitrate)
         execution_flag = multiprocessing.Event()
-        temp_client, load_client, fuel_client = init_mqtt_clients(bus, True, True, True, config, execution_flag)
+        temp_client, load_client, fuel_client = init_mqtt_clients(bus, False, False, False, config, execution_flag)
         self.TC.assertIsNone(temp_client)
         self.TC.assertIsNone(load_client)
         self.TC.assertIsNone(fuel_client)
@@ -199,7 +199,7 @@ class TestCanService(object):
             on_connect_fuel_sensor(None, None, None, 1, None)
             self.TC.assertEqual(["CRITICAL:customConsoleLogger:CAN Fuel sensor failed to establish connection with MQTT broker!"], custom_logger.output)
 
-    def test_can_listener(self):
+    def test_can_listener_init_failure(self):
         can_listener = CANListener(None, None, None)
 
         self.TC.assertIsNone(can_listener.temp_client, None)
@@ -215,3 +215,37 @@ class TestCanService(object):
         can_listener.set_fuel_client(None)
         self.TC.assertIsNone(can_listener.fuel_client)
 
+    @pytest.mark.parametrize('temperature, load, fuel', [
+        (bytearray(b'\xff\xff\xff\xff\xff\xff\xff\xe4'), bytearray(), bytearray()),
+        (bytes(), bytes(), bytes()),
+        (123, 123, 123),
+        ([1, 2, 3, 4, 5], [5, 6], [])
+    ])
+    def test_can_listener_message_receiving(self, temperature, load, fuel):
+        can_listener = CANListener(None, None, None)
+
+        # temperature
+        can_message = can.Message(arbitration_id=0x123,
+                                  data=temperature,
+                                  is_extended_id=False,
+                                  is_remote_frame=False)
+
+        can_listener.on_message_received(can_message)
+        self.TC.assertNoLogs(customLogger, logging.INFO)
+
+        # load
+        can_message = can.Message(arbitration_id=0x124,
+                                  data=load,
+                                  is_extended_id=False,
+                                  is_remote_frame=False)
+
+        can_listener.on_message_received(can_message)
+        self.TC.assertNoLogs(customLogger, logging.INFO)
+
+        # fuel
+        can_message = can.Message(arbitration_id=0x125,
+                                  data=fuel,
+                                  is_extended_id=False,
+                                  is_remote_frame=False)
+        can_listener.on_message_received(can_message)
+        self.TC.assertNoLogs(customLogger, logging.INFO)

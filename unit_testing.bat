@@ -5,3 +5,4 @@ pytest
 del logging.conf
 del *.log
 del configuration
+rmdir configuration
