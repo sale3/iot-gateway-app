@@ -691,6 +691,7 @@ def sensors_devices(temp_flag, load_flag, fuel_flag, can_flag, config_flags,
     if is_can_temp or is_can_load or is_can_fuel:
         if not init_flags.can_initiated:
             can_sensor = threading.Thread(
+                name="CAN Thread",
                 target=read_can,
                 args=(
                     can_flag,
@@ -705,6 +706,7 @@ def sensors_devices(temp_flag, load_flag, fuel_flag, can_flag, config_flags,
     if app_conf.temp_mode == "SIMULATOR":
         if not init_flags.temp_simulator_initiated:
             simulation_temperature_sensor = threading.Thread(
+                name="Temperature Simulator",
                 target=measure_temperature_periodically,
                 args=(
                     conf_data[TEMP_SENSOR][INTERVAL],
@@ -725,6 +727,7 @@ def sensors_devices(temp_flag, load_flag, fuel_flag, can_flag, config_flags,
     if app_conf.load_mode == "SIMULATOR":
         if not init_flags.load_simulator_initiated:
             simulation_load_sensor = threading.Thread(
+                name="Load Simulator",
                 target=measure_load_randomly,
                 args=(
                     conf_data[ARM_SENSOR][ARM_MIN_T],
@@ -747,6 +750,7 @@ def sensors_devices(temp_flag, load_flag, fuel_flag, can_flag, config_flags,
 
         if not init_flags.fuel_simulator_initiated:
             simulation_fuel_sensor = threading.Thread(
+                name="Fuel Simulator",
                 target=measure_fuel_periodically,
                 args=(
                     conf_data[FUEL_SENSOR][INTERVAL],

@@ -1,9 +1,16 @@
+import threading
 import unittest
 import logging
+from multiprocessing import Event
+
+import pytest
+
+from src.config_util import ConfFlags, start_config_observer, Config
 from src.sensor_devices import infoLogger, customLogger, errorLogger, on_publish, on_connect_temp_sensor, \
     on_connect_load_sensor, on_connect_fuel_sensor, read_conf, TEMP_SENSOR, INTERVAL, MIN, AVG, ARM_SENSOR, ARM_MIN_T, \
     ARM_MAX_T, MAX, FUEL_SENSOR, FUEL_CAPACITY, FUEL_CONSUMPTION, FUEL_EFFICIENCY, FUEL_REFILL, MQTT_BROKER, ADDRESS, \
-    PORT, MQTT_USER, MQTT_PASSWORD
+    PORT, MQTT_USER, MQTT_PASSWORD, InitFlags, sensors_devices, APP_CONF_FILE_PATH, LOAD_SETTINGS, MODE, FUEL_SETTINGS, \
+    TEMP_SETTINGS
 
 
 class TestSensorDevices(object):
@@ -110,3 +117,84 @@ class TestSensorDevices(object):
                 MQTT_USER: "iot-device",
                 MQTT_PASSWORD: "password"}}
         self.TC.assertEqual(default_config, config)
+
+    @pytest.mark.parametrize('is_temp_sim, is_load_sim, is_fuel_sim', [
+        (False, False, False),
+        (True, False, False),
+        (True, True, False),
+        (True, True, True)
+    ])
+    def test_sensors_devices(self, is_temp_sim, is_load_sim, is_fuel_sim):
+
+        config = Config(APP_CONF_FILE_PATH, errorLogger, customLogger)
+        config.try_open()
+
+        temp_mode = config.temp_mode
+        load_mode = config.load_mode
+        fuel_mode = config.fuel_mode
+
+        if is_temp_sim is True:
+            config.config[TEMP_SETTINGS][MODE] = "SIMULATOR"
+        else:
+            config.config[TEMP_SETTINGS][MODE] = "CAN"
+        if is_load_sim is True:
+            config.config[LOAD_SETTINGS][MODE] = "SIMULATOR"
+        else:
+            config.config[LOAD_SETTINGS][MODE] = "CAN"
+        if is_fuel_sim is True:
+            config.config[FUEL_SETTINGS][MODE] = "SIMULATOR"
+        else:
+            config.config[FUEL_SETTINGS][MODE] = "CAN"
+
+        config.write()
+
+        temp_simulation_flag = Event()
+        load_simulation_flag = Event()
+        fuel_simulation_flag = Event()
+        can_flag = Event()
+
+        temp_lock = threading.Lock()
+        load_lock = threading.Lock()
+        fuel_lock = threading.Lock()
+        can_lock = threading.Lock()
+
+        app_config_flags = ConfFlags()
+        init_flags = InitFlags()
+
+        sensors = sensors_devices(
+            temp_simulation_flag,
+            load_simulation_flag,
+            fuel_simulation_flag,
+            can_flag,
+            app_config_flags,
+            init_flags,
+            can_lock,
+            temp_lock,
+            load_lock,
+            fuel_lock)
+
+        if is_temp_sim:
+            result = [thread for thread in sensors if thread.name == "Temperature Simulator"]
+            self.TC.assertEqual(result, sensors[sensors.index(result)])
+        if is_load_sim:
+            result = [thread for thread in sensors if thread.name == "Load Simulator"]
+            self.TC.assertEqual(result, sensors[sensors.index(result)])
+        if is_fuel_sim:
+            result = [thread for thread in sensors if thread.name == "Fuel Simulator"]
+            self.TC.assertEqual(result, sensors[sensors.index(result)])
+
+        if is_temp_sim is False or is_load_sim is False or is_fuel_sim is False:
+            result = [thread for thread in sensors if thread.name == "CAN Thread"]
+            self.TC.assertEqual(result, sensors[sensors.index(result)])
+
+        temp_simulation_flag.set()
+        load_simulation_flag.set()
+        fuel_simulation_flag.set()
+        can_flag.set()
+
+        config.config[TEMP_SETTINGS][MODE] = temp_mode
+        config.config[LOAD_SETTINGS][MODE] = load_mode
+        config.config[FUEL_SETTINGS][MODE] = fuel_mode
+
+        config.write()
+
