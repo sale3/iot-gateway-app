@@ -6,13 +6,16 @@ import paho.mqtt.client as mqtt
 from src.can_service import TRANSPORT_PROTOCOL, infoLogger, errorLogger, customLogger
 from src.config_util import Config
 from src.mqtt_utils import MQTTClient
+from tests.mock_util import mock_config_end, mock_config_start
 
 APP_CONF_FILE_PATH = "configuration/app_conf.json"
 class TestMqttUtils(object):
     TC = unittest.TestCase()
 
     def test_client_init(self):
-        config = Config(APP_CONF_FILE_PATH)
+        mock_config_start()
+
+        config = Config(APP_CONF_FILE_PATH, errorLogger, customLogger)
         config.try_open()
         flag = multiprocessing.Event()
 
@@ -41,9 +44,11 @@ class TestMqttUtils(object):
         self.TC.assertEqual(client.errorLogger, errorLogger)
         self.TC.assertEqual(client.flag, flag)
         self.TC.assertEqual(client.sensor_type, "TEMP")
+        mock_config_end()
 
     def test_set_on_connect(self):
-        config = Config(APP_CONF_FILE_PATH)
+        mock_config_start()
+        config = Config(APP_CONF_FILE_PATH, errorLogger, customLogger)
         config.try_open()
         flag = multiprocessing.Event()
 
@@ -65,9 +70,11 @@ class TestMqttUtils(object):
             pass
         client.set_on_connect(on_connect_sensor)
         self.TC.assertEqual(client.client.on_connect, on_connect_sensor)
+        mock_config_end()
 
     def test_set_on_publish(self):
-        config = Config(APP_CONF_FILE_PATH)
+        mock_config_start()
+        config = Config(APP_CONF_FILE_PATH, errorLogger, customLogger)
         config.try_open()
         flag = multiprocessing.Event()
 
@@ -89,9 +96,11 @@ class TestMqttUtils(object):
             pass
         client.set_on_publish(on_publish)
         self.TC.assertEqual(client.client.on_publish, on_publish)
+        mock_config_end()
 
     def test_set_on_message(self):
-        config = Config(APP_CONF_FILE_PATH)
+        mock_config_start()
+        config = Config(APP_CONF_FILE_PATH, errorLogger, customLogger)
         config.try_open()
         flag = multiprocessing.Event()
 
@@ -113,9 +122,11 @@ class TestMqttUtils(object):
             pass
         client.set_on_message(on_message_handler)
         self.TC.assertEqual(client.client.on_message, on_message_handler)
+        mock_config_end()
 
     def test_set_on_subscribe(self):
-        config = Config(APP_CONF_FILE_PATH)
+        mock_config_start()
+        config = Config(APP_CONF_FILE_PATH, errorLogger, customLogger)
         config.try_open()
         flag = multiprocessing.Event()
 
@@ -137,3 +148,5 @@ class TestMqttUtils(object):
             pass
         client.set_on_subscribe(on_subscribe)
         self.TC.assertEqual(client.client.on_subscribe, on_subscribe)
+
+        mock_config_end()

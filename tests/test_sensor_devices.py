@@ -11,6 +11,7 @@ from src.sensor_devices import infoLogger, customLogger, errorLogger, on_publish
     ARM_MAX_T, MAX, FUEL_SENSOR, FUEL_CAPACITY, FUEL_CONSUMPTION, FUEL_EFFICIENCY, FUEL_REFILL, MQTT_BROKER, ADDRESS, \
     PORT, MQTT_USER, MQTT_PASSWORD, InitFlags, sensors_devices, APP_CONF_FILE_PATH, LOAD_SETTINGS, MODE, FUEL_SETTINGS, \
     TEMP_SETTINGS, CONF_FILE_PATH
+from tests.mock_util import mock_config_end, mock_config_start
 
 
 class TestSensorDevices(object):
@@ -89,9 +90,11 @@ class TestSensorDevices(object):
                                 custom_logger.output)
 
     def test_read_conf(self):
+        mock_config_start()
         read_conf(CONF_FILE_PATH)
         self.TC.assertNoLogs(errorLogger, logging.CRITICAL)
         self.TC.assertNoLogs(customLogger, logging.CRITICAL)
+        mock_config_end()
 
     def test_read_conf_default(self):
         config = read_conf("asdasdasda")
@@ -125,7 +128,7 @@ class TestSensorDevices(object):
         (True, True, True)
     ])
     def test_sensors_devices(self, is_temp_sim, is_load_sim, is_fuel_sim):
-
+        mock_config_start()
         config = Config(APP_CONF_FILE_PATH, errorLogger, customLogger)
         config.try_open()
 
@@ -197,4 +200,4 @@ class TestSensorDevices(object):
         config.config[FUEL_SETTINGS][MODE] = fuel_mode
 
         config.write()
-
+        mock_config_end()

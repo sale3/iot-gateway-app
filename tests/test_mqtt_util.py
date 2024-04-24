@@ -3,7 +3,7 @@ import pytest
 import logging
 import json
 
-from tests.mock_data import create_mock
+from tests.mock_util import create_mock
 
 from src.mqtt_util import MQTTConf, GcbService, \
     gcb_publisher_on_connect, gcb_subscriber_on_connect, gcb_on_message, \

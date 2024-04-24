@@ -14,6 +14,7 @@ from src.config_util import CAN_GENERAL_SETTINGS, INTERFACE, CHANNEL, BITRATE
 from src.config_util import Config
 from src.sensor_devices import InitFlags
 from src.can_service import infoLogger, customLogger, errorLogger
+from tests.mock_util import mock_config_start, mock_config_end
 
 logging.config.fileConfig('logging.conf')
 testInfoLogger = logging.getLogger('testInfoLogger')
@@ -32,6 +33,8 @@ class TestCanService(object):
         ('pcan', 'asdasda', 500000)
     ])
     def test_bus_connection_failure(self, interface, channel, bitrate):
+        mock_config_start()
+
         config = Config(APP_CONF_FILE_PATH, errorLogger, customLogger)
         config.try_open()
 
@@ -84,8 +87,11 @@ class TestCanService(object):
         config.config[CAN_GENERAL_SETTINGS][BITRATE] = saved_bitrate
 
         config.write()
+        mock_config_end()
 
     def test_init_mqtt_failure(self):
+        mock_config_start()
+
         config = Config(APP_CONF_FILE_PATH, errorLogger, customLogger)
         config.try_open()
 
@@ -97,6 +103,8 @@ class TestCanService(object):
         self.TC.assertIsNone(temp_client)
         self.TC.assertIsNone(load_client)
         self.TC.assertIsNone(fuel_client)
+
+        mock_config_end()
 
     def test_on_subscribe_temp_alarm(self):
 
