@@ -76,15 +76,17 @@ mqtt_broker_local: str
 import signal
 import sys
 
-import auth
-import stats_service
-import data_service
+
+
 import time
 import logging.config
 import paho.mqtt.client as mqtt
 from threading import Thread, Event
 from queue import Queue
 if 'unittest' in sys.modules.keys():
+    import src.auth
+    import src.stats_service
+    import src.data_service
     from src.mqtt_util import MQTTConf, GcbService, \
         GCB_TEMP_TOPIC, GCB_LOAD_TOPIC, GCB_FUEL_TOPIC, GCB_STATS_TOPIC
     from src.config_util import ConfFlags, get_temp_interval, get_fuel_level_limit, \
@@ -94,6 +96,9 @@ if 'unittest' in sys.modules.keys():
     from src.data_service import EMPTY_PAYLOAD
     from src.signal_control import BetterSignalHandler
 else:
+    import auth
+    import stats_service
+    import data_service
     from mqtt_util import MQTTConf, GcbService, \
         GCB_TEMP_TOPIC, GCB_LOAD_TOPIC, GCB_FUEL_TOPIC, GCB_STATS_TOPIC
     from config_util import ConfFlags, get_temp_interval, get_fuel_level_limit, \
