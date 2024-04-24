@@ -55,15 +55,22 @@ _l: str
 qos: int
     Quality of service of MQTT.
 """
+import sys
+
 import can
 import logging.config
 import paho.mqtt.client as mqtt
 import logging
 import time
-from src.mqtt_utils import MQTTClient
 from can.listener import Listener
 from can.interface import Bus
-from src.config_util import Config
+
+if 'unittest' in sys.modules.keys():
+    from src.mqtt_utils import MQTTClient
+    from src.config_util import Config
+else:
+    from mqtt_utils import MQTTClient
+    from config_util import Config
 
 logging.config.fileConfig('logging.conf')
 infoLogger = logging.getLogger('customInfoLogger')

@@ -74,6 +74,8 @@ mqtt_broker_local: str
     Reference of local mqtt broker
 """
 import signal
+import sys
+
 import auth
 import stats_service
 import data_service
@@ -82,14 +84,24 @@ import logging.config
 import paho.mqtt.client as mqtt
 from threading import Thread, Event
 from queue import Queue
-from mqtt_util import MQTTConf, GcbService, \
-    GCB_TEMP_TOPIC, GCB_LOAD_TOPIC, GCB_FUEL_TOPIC, GCB_STATS_TOPIC
-from config_util import ConfFlags, get_temp_interval, get_fuel_level_limit, \
-    start_config_observer
-from mqtt_utils import MQTTClient
-from config_util import Config
-from data_service import EMPTY_PAYLOAD
-from signal_control import BetterSignalHandler
+if 'unittest' in sys.modules.keys():
+    from src.mqtt_util import MQTTConf, GcbService, \
+        GCB_TEMP_TOPIC, GCB_LOAD_TOPIC, GCB_FUEL_TOPIC, GCB_STATS_TOPIC
+    from src.config_util import ConfFlags, get_temp_interval, get_fuel_level_limit, \
+        start_config_observer
+    from src.mqtt_utils import MQTTClient
+    from src.config_util import Config
+    from src.data_service import EMPTY_PAYLOAD
+    from src.signal_control import BetterSignalHandler
+else:
+    from mqtt_util import MQTTConf, GcbService, \
+        GCB_TEMP_TOPIC, GCB_LOAD_TOPIC, GCB_FUEL_TOPIC, GCB_STATS_TOPIC
+    from config_util import ConfFlags, get_temp_interval, get_fuel_level_limit, \
+        start_config_observer
+    from mqtt_utils import MQTTClient
+    from config_util import Config
+    from data_service import EMPTY_PAYLOAD
+    from signal_control import BetterSignalHandler
 
 logging.config.fileConfig('logging.conf')
 infoLogger = logging.getLogger('customInfoLogger')

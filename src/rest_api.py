@@ -25,6 +25,8 @@ Constants
 ---------
 
 """
+import sys
+
 import uvicorn
 import logging.config
 from fastapi import FastAPI
@@ -32,7 +34,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.encoders import jsonable_encoder
 from pydantic import BaseModel
 
-from config_util import Config, TEMP_SETTINGS, LOAD_SETTINGS, FUEL_SETTINGS, CONF_PATH, INTERVAL
+if 'unittest' in sys.modules.keys():
+    from src.config_util import Config, TEMP_SETTINGS, LOAD_SETTINGS, FUEL_SETTINGS, CONF_PATH, INTERVAL
+else:
+    from config_util import Config, TEMP_SETTINGS, LOAD_SETTINGS, FUEL_SETTINGS, CONF_PATH, INTERVAL
+
 
 logging.config.fileConfig('logging.conf')
 infoLogger = logging.getLogger('customInfoLogger')
