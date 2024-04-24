@@ -50,8 +50,7 @@ class BetterSignalHandler:
         self.flags = flags
         self.original_handlers = []
         for sig in self.sigs:
-            if sig > signal.CTRL_BREAK_EVENT:
-                self.original_handlers.append(signal.getsignal(sig))
+            self.original_handlers.append(signal.getsignal(sig))
             signal.signal(sig, self.handler)
 
     def handler(self, signum, frame):
