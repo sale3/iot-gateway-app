@@ -206,7 +206,7 @@ def read_can(execution_flag, config_flag, init_flags, can_lock):
                         customLogger.debug("CAN BUS is not active.")
                 previous_message_counter = can_listener.message_counter
 
-    except Exception as e:
+    except Exception:
         errorLogger.error("CAN BUS has been shut down.")
         customLogger.debug("CAN BUS has been shut down.")
     can_lock.acquire()
@@ -317,7 +317,7 @@ def init_mqtt_clients(
             errorLogger=errorLogger,
             flag=flag,
             sensor_type="LOAD")
-            
+
         def on_message_load_alarm(client, userdata, msg):
             can_message = can.Message(arbitration_id=0x121,
                                       data=[bool(msg.payload)],

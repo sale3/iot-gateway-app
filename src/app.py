@@ -76,17 +76,12 @@ mqtt_broker_local: str
 import signal
 import sys
 
-
-
 import time
 import logging.config
 import paho.mqtt.client as mqtt
 from threading import Thread, Event
 from queue import Queue
 if 'unittest' in sys.modules.keys():
-    import src.auth
-    import src.stats_service
-    import src.data_service
     from src.mqtt_util import MQTTConf, GcbService, \
         GCB_TEMP_TOPIC, GCB_LOAD_TOPIC, GCB_FUEL_TOPIC, GCB_STATS_TOPIC
     from src.config_util import ConfFlags, get_temp_interval, get_fuel_level_limit, \
