@@ -191,7 +191,7 @@ def on_connect_load_sensor(client, userdata, flags, rc, props):
     else:
         errorLogger.error(
             "Arm load sensor failed to establish connection with MQTT broker!")
-        errorLogger.critical(
+        customLogger.critical(
             "Arm load sensor failed to establish connection with MQTT broker!")
 
 
@@ -603,7 +603,7 @@ def measure_fuel_periodically(
 
 
 # read sensor conf data
-def read_conf():
+def read_conf(path):
     """
     Loads sensors' config from config file.
 
@@ -611,7 +611,7 @@ def read_conf():
     """
     data = None
     try:
-        conf_file = open(CONF_FILE_PATH)
+        conf_file = open(path)
         data = json.load(conf_file)
     except BaseException:
         errorLogger.critical(
@@ -670,7 +670,7 @@ def sensors_devices(temp_flag, load_flag, fuel_flag, can_flag, config_flags,
     -------
     None
     """
-    conf_data = read_conf()
+    conf_data = read_conf(CONF_FILE_PATH)
     # app_conf_data = read_app_conf()
     app_conf = Config(APP_CONF_FILE_PATH, errorLogger, customLogger)
     app_conf.try_open()
@@ -680,7 +680,6 @@ def sensors_devices(temp_flag, load_flag, fuel_flag, can_flag, config_flags,
     is_can_temp = False
     is_can_load = False
     is_can_fuel = False
-
     if app_conf.temp_mode == "CAN":
         is_can_temp = True
     if app_conf.load_mode == "CAN":

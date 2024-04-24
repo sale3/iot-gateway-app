@@ -10,7 +10,7 @@ from src.sensor_devices import infoLogger, customLogger, errorLogger, on_publish
     on_connect_load_sensor, on_connect_fuel_sensor, read_conf, TEMP_SENSOR, INTERVAL, MIN, AVG, ARM_SENSOR, ARM_MIN_T, \
     ARM_MAX_T, MAX, FUEL_SENSOR, FUEL_CAPACITY, FUEL_CONSUMPTION, FUEL_EFFICIENCY, FUEL_REFILL, MQTT_BROKER, ADDRESS, \
     PORT, MQTT_USER, MQTT_PASSWORD, InitFlags, sensors_devices, APP_CONF_FILE_PATH, LOAD_SETTINGS, MODE, FUEL_SETTINGS, \
-    TEMP_SETTINGS
+    TEMP_SETTINGS, CONF_FILE_PATH
 
 
 class TestSensorDevices(object):
@@ -89,12 +89,12 @@ class TestSensorDevices(object):
                                 custom_logger.output)
 
     def test_read_conf(self):
-        read_conf()
+        read_conf(CONF_FILE_PATH)
         self.TC.assertNoLogs(errorLogger, logging.CRITICAL)
         self.TC.assertNoLogs(customLogger, logging.CRITICAL)
 
     def test_read_conf_default(self):
-        config = read_conf()
+        config = read_conf("asdasdasda")
         default_config = {
             TEMP_SENSOR: {
                 INTERVAL: 5,
@@ -175,17 +175,17 @@ class TestSensorDevices(object):
 
         if is_temp_sim:
             result = [thread for thread in sensors if thread.name == "Temperature Simulator"]
-            self.TC.assertEqual(result, sensors[sensors.index(result)])
+            self.TC.assertEqual(result[0], sensors[sensors.index(result[0])])
         if is_load_sim:
             result = [thread for thread in sensors if thread.name == "Load Simulator"]
-            self.TC.assertEqual(result, sensors[sensors.index(result)])
+            self.TC.assertEqual(result[0], sensors[sensors.index(result[0])])
         if is_fuel_sim:
             result = [thread for thread in sensors if thread.name == "Fuel Simulator"]
-            self.TC.assertEqual(result, sensors[sensors.index(result)])
+            self.TC.assertEqual(result[0], sensors[sensors.index(result[0])])
 
         if is_temp_sim is False or is_load_sim is False or is_fuel_sim is False:
             result = [thread for thread in sensors if thread.name == "CAN Thread"]
-            self.TC.assertEqual(result, sensors[sensors.index(result)])
+            self.TC.assertEqual(result[0], sensors[sensors.index(result[0])])
 
         temp_simulation_flag.set()
         load_simulation_flag.set()

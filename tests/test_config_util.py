@@ -26,7 +26,7 @@ class TestConfigUtil(object):
         self.TC.assertNoLogs(customLogger, logging.CRITICAL)
 
     def test_config_read_default(self):
-        config = Config(APP_CONF_FILE_PATH, errorLogger, customLogger)
+        config = Config("asdasdasdsad", errorLogger, customLogger)
         config.try_open()
         default_config = {
             FUEL_SETTINGS: {

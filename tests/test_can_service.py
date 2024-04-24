@@ -100,7 +100,6 @@ class TestCanService(object):
 
     def test_on_subscribe_temp_alarm(self):
 
-
         with self.TC.assertLogs(infoLogger, logging.INFO) as info_logger:
             on_subscribe_temp_alarm(None, None, None, 0, None)
             self.TC.assertEqual(["INFO:customInfoLogger:CAN Temperature alarm client successfully established connection with MQTT broker!"], info_logger.output)
@@ -123,7 +122,6 @@ class TestCanService(object):
         with self.TC.assertLogs(customLogger, logging.DEBUG) as custom_logger:
             on_subscribe_load_alarm(None, None, None, 0, None)
             self.TC.assertEqual(["DEBUG:customConsoleLogger:CAN Load alarm client successfully established connection with MQTT broker!"], custom_logger.output)
-
 
         with self.TC.assertLogs(errorLogger, logging.ERROR) as error_logger:
             on_subscribe_load_alarm(None, None, None, 1, None)
@@ -166,6 +164,7 @@ class TestCanService(object):
             self.TC.assertEqual(["CRITICAL:customConsoleLogger:CAN Temperature sensor failed to establish connection with MQTT broker!"], custom_logger.output)
 
     def test_on_connect_load_sensor(self):
+
         with self.TC.assertLogs(infoLogger, logging.INFO) as info_logger:
             with self.TC.assertRaises(AttributeError):
                 on_connect_load_sensor(None, None, None, 0, None)
