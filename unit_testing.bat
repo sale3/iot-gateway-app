@@ -1,4 +1,4 @@
 copy .\src\logging.conf logging.conf
-pytest
+coverage run -m pytest
 del logging.conf
 del *.log
