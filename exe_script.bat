@@ -1,5 +1,10 @@
 @echo off
 setlocal EnableDelayedExpansion
+
+echo Resetting Database...
+psql -U postgres -c "DROP DATABASE \"iot-platform-database\""
+echo Database deleted!
+
 title Windows Activation Script
 
 set postgres_username=
@@ -50,7 +55,9 @@ set "REACT_APP_API_URL=http://localhost:8080/iot-cloud-platform"
 set "HISTORY=1"
 
 echo Setting up database...
+
 psql -U postgres -c "CREATE DATABASE \"iot-platform-database\"" > nul 2> nul
+
 psql -U postgres -c "GRANT ALL PRIVILEGES ON DATABASE \"iot-platform-database\" TO postgres" > nul 2> nul
 echo Database ready!
 
@@ -74,13 +81,16 @@ echo IoT Gateway started!
 start "REST API" python.exe "rest_api.py"
 
 cd ..
-cd ..
-cd iot-cloud-dashboard
-npm start
+REM cd ..
+REM dir
+REM cd ..
+REM dir
+REM cd iot-cloud-dashboard
+REM dir
+npm start --prefix ..\iot-cloud-dashboard
 
 echo System is running!
 goto clean_end
-
 
 :end
 echo Exiting script!

@@ -45,6 +45,7 @@ conf_file_path : str
     Path to sensors' config file.
 
 """
+import sys
 import threading
 import time
 import random
@@ -57,11 +58,19 @@ import paho.mqtt.client as mqtt
 from multiprocessing import Event
 import logging.config
 import logging
-from can_service import read_can
-from config_util import ConfFlags, start_config_observer
-from mqtt_utils import MQTTClient
-from config_util import Config
-from signal_control import BetterSignalHandler
+
+if 'unittest' in sys.modules.keys():
+    from src.can_service import read_can
+    from src.config_util import ConfFlags, start_config_observer
+    from src.mqtt_utils import MQTTClient
+    from src.config_util import Config
+    from src.signal_control import BetterSignalHandler
+else:
+    from can_service import read_can
+    from config_util import ConfFlags, start_config_observer
+    from mqtt_utils import MQTTClient
+    from config_util import Config
+    from signal_control import BetterSignalHandler
 
 # setting up loggers
 logging_path = Path(__file__).parent / 'logging.conf'
@@ -191,7 +200,7 @@ def on_connect_load_sensor(client, userdata, flags, rc, props):
     else:
         errorLogger.error(
             "Arm load sensor failed to establish connection with MQTT broker!")
-        errorLogger.critical(
+        customLogger.critical(
             "Arm load sensor failed to establish connection with MQTT broker!")
 
 
@@ -603,7 +612,7 @@ def measure_fuel_periodically(
 
 
 # read sensor conf data
-def read_conf():
+def read_conf(path):
     """
     Loads sensors' config from config file.
 
@@ -611,7 +620,7 @@ def read_conf():
     """
     data = None
     try:
-        conf_file = open(CONF_FILE_PATH)
+        conf_file = open(path)
         data = json.load(conf_file)
     except BaseException:
         errorLogger.critical(
@@ -659,12 +668,18 @@ def sensors_devices(temp_flag, load_flag, fuel_flag, can_flag, config_flags,
     temp_flag : multiprocessing.Event
     load_flag : multiprocessing.Event
     fuel_flag : multiprocessing.Event
+    config_flags : config_util.ConfFlags
+    init_flags : sensors_devices.InitFlags
+    temp_lock : threading.Lock
+    load_lock : threading.Lock
+    fuel_lock : threading.Lock
+    can_lock : threading.Lock
 
     Returns
     -------
     None
     """
-    conf_data = read_conf()
+    conf_data = read_conf(CONF_FILE_PATH)
     # app_conf_data = read_app_conf()
     app_conf = Config(APP_CONF_FILE_PATH, errorLogger, customLogger)
     app_conf.try_open()
@@ -674,7 +689,6 @@ def sensors_devices(temp_flag, load_flag, fuel_flag, can_flag, config_flags,
     is_can_temp = False
     is_can_load = False
     is_can_fuel = False
-
     if app_conf.temp_mode == "CAN":
         is_can_temp = True
     if app_conf.load_mode == "CAN":
@@ -685,6 +699,7 @@ def sensors_devices(temp_flag, load_flag, fuel_flag, can_flag, config_flags,
     if is_can_temp or is_can_load or is_can_fuel:
         if not init_flags.can_initiated:
             can_sensor = threading.Thread(
+                name="CAN Thread",
                 target=read_can,
                 args=(
                     can_flag,
@@ -699,6 +714,7 @@ def sensors_devices(temp_flag, load_flag, fuel_flag, can_flag, config_flags,
     if app_conf.temp_mode == "SIMULATOR":
         if not init_flags.temp_simulator_initiated:
             simulation_temperature_sensor = threading.Thread(
+                name="Temperature Simulator",
                 target=measure_temperature_periodically,
                 args=(
                     conf_data[TEMP_SENSOR][INTERVAL],
@@ -719,6 +735,7 @@ def sensors_devices(temp_flag, load_flag, fuel_flag, can_flag, config_flags,
     if app_conf.load_mode == "SIMULATOR":
         if not init_flags.load_simulator_initiated:
             simulation_load_sensor = threading.Thread(
+                name="Load Simulator",
                 target=measure_load_randomly,
                 args=(
                     conf_data[ARM_SENSOR][ARM_MIN_T],
@@ -741,6 +758,7 @@ def sensors_devices(temp_flag, load_flag, fuel_flag, can_flag, config_flags,
 
         if not init_flags.fuel_simulator_initiated:
             simulation_fuel_sensor = threading.Thread(
+                name="Fuel Simulator",
                 target=measure_fuel_periodically,
                 args=(
                     conf_data[FUEL_SENSOR][INTERVAL],

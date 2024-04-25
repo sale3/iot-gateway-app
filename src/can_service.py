@@ -55,15 +55,22 @@ _l: str
 qos: int
     Quality of service of MQTT.
 """
+import sys
+
 import can
 import logging.config
 import paho.mqtt.client as mqtt
 import logging
 import time
-from mqtt_utils import MQTTClient
 from can.listener import Listener
 from can.interface import Bus
-from config_util import Config
+
+if 'unittest' in sys.modules.keys():
+    from src.mqtt_utils import MQTTClient
+    from src.config_util import Config
+else:
+    from mqtt_utils import MQTTClient
+    from config_util import Config
 
 logging.config.fileConfig('logging.conf')
 infoLogger = logging.getLogger('customInfoLogger')
@@ -156,7 +163,6 @@ def read_can(execution_flag, config_flag, init_flags, can_lock):
     temp_client = None
     load_client = None
     fuel_client = None
-
     bus = None
 
     try:
@@ -190,6 +196,7 @@ def read_can(execution_flag, config_flag, init_flags, can_lock):
                 initial = False
                 config_flag.clear()
             time.sleep(period)
+
             period_counter += 1
 
             if can_listener is not None:
@@ -202,11 +209,9 @@ def read_can(execution_flag, config_flag, init_flags, can_lock):
     except Exception:
         errorLogger.error("CAN BUS has been shut down.")
         customLogger.debug("CAN BUS has been shut down.")
-
     can_lock.acquire()
     init_flags.can_initiated = False
     can_lock.release()
-
     stop_can(notifier, bus, temp_client, load_client, fuel_client)
     execution_flag.clear()
     customLogger.debug("CAN process shutdown!")
@@ -250,7 +255,7 @@ def init_mqtt_clients(
         config,
         flag):
     """
-    Used for stopping all CAN functionalities
+    Used for initializing all MQTT connections
 
     Args:
     ----
@@ -436,15 +441,15 @@ def on_subscribe_fuel_alarm(client, userdata, flags, rc, props):
     """
     if rc == 0:
         infoLogger.info(
-            "CAN Load alarm client successfully established connection with MQTT broker!")
+            "CAN Fuel alarm client successfully established connection with MQTT broker!")
         customLogger.debug(
-            "CAN Load alarm client successfully established connection with MQTT broker!")
+            "CAN Fuel alarm client successfully established connection with MQTT broker!")
         # client.subscribe(FUEL_ALARM_TOPIC, qos=QOS)
     else:
         errorLogger.error(
-            "CAN Load alarm client failed to establish connection with MQTT broker!")
+            "CAN Fuel alarm client failed to establish connection with MQTT broker!")
         customLogger.critical(
-            "CAN Load alarm client failed to establish connection with MQTT broker!")
+            "CAN Fuel alarm client failed to establish connection with MQTT broker!")
 
 
 def on_connect_temp_sensor(client, userdata, flags, rc, props):
@@ -623,6 +628,7 @@ class CANListener (Listener):
         self.message_counter += 1
         if self.message_counter > 5:
             self.message_counter = 0
+
         # msg.data is a byte array, need to turn it into a single value
         int_value = int.from_bytes(msg.data, byteorder="big", signed=True)
         value = int_value / 10.0
