@@ -63,7 +63,6 @@ class TestCanService(object):
                     can_lock))
             can_sensor.start()
             time.sleep(2)
-            print("HEEELEELELELLELEO", custom_logger.output)
             self.TC.assertEqual(["DEBUG:customConsoleLogger:CAN process shutdown!"], [custom_logger.output[len(custom_logger.output) - 1]])
             execution_flag.set()
             execution_flag.clear()
