@@ -1,5 +1,4 @@
 import unittest
-import pytest
 import os
 import shutil
 
@@ -11,15 +10,14 @@ from src.config_util import ConfFlags, ConfHandler, \
 from tests.mock_util import mock_config_start, mock_config_end
 
 
-class TestConfigUtil(object):
-    TC = unittest.TestCase()
+class TestConfigUtil(unittest.TestCase):
 
     def assert_flags_set(self, conf_flags):
-        self.TC.assertTrue(conf_flags.fuel_flag.is_set())
-        self.TC.assertTrue(conf_flags.temp_flag.is_set())
-        self.TC.assertTrue(conf_flags.load_flag.is_set())
-        self.TC.assertTrue(conf_flags.can_flag.is_set())
-        self.TC.assertTrue(conf_flags.execution_flag.is_set())
+        self.assertTrue(conf_flags.fuel_flag.is_set())
+        self.assertTrue(conf_flags.temp_flag.is_set())
+        self.assertTrue(conf_flags.load_flag.is_set())
+        self.assertTrue(conf_flags.can_flag.is_set())
+        self.assertTrue(conf_flags.execution_flag.is_set())
 
     def test_conf_flags_set_all(self):
         flags = ConfFlags()
@@ -30,7 +28,7 @@ class TestConfigUtil(object):
         super()
         flags = ConfFlags()
         conf_handler = ConfHandler(flags)
-        self.TC.assertEqual(flags, conf_handler.conf_flags)
+        self.assertEqual(flags, conf_handler.conf_flags)
 
     def test_conf_handler_on_modified(self):
         flags = ConfFlags()
@@ -44,24 +42,24 @@ class TestConfigUtil(object):
     def test_start_config_observer_created(self):
         mock_config_start()
         observer = start_config_observer(ConfFlags())
-        self.TC.assertIsNotNone(observer)
+        self.assertIsNotNone(observer)
         mock_config_end()
 
     def test_read_conf_correct(self):
         mock_config_start()
-        self.TC.assertIsNotNone(read_conf())
+        self.assertIsNotNone(read_conf())
         mock_config_end()
 
     def test_read_conf_wrong(self):
-        self.TC.assertIsNone(read_conf())
+        self.assertIsNone(read_conf())
 
     def test_write_conf_correct(self):
         mock_config_start()
         conf = read_conf()
         os.remove(CONF_PATH)
         write_ret = write_conf(conf)
-        self.TC.assertEqual(conf, write_ret)
-        self.TC.assertTrue(os.path.exists(CONF_PATH))
+        self.assertEqual(conf, write_ret)
+        self.assertTrue(os.path.exists(CONF_PATH))
         shutil.rmtree(CONF_DIR)
 
     def test_write_conf_wrong(self):
@@ -69,14 +67,14 @@ class TestConfigUtil(object):
         conf = read_conf()
         mock_config_end()
         write_ret = write_conf(conf)
-        self.TC.assertIsNone(write_ret)
+        self.assertIsNone(write_ret)
 
     def test_legacy_config_parameter_getters(self):
         mock_config_start()
         config = Config(CONF_PATH)
         config.try_open()
-        self.TC.assertEqual(config.temp_settings_interval, get_temp_interval(config))
-        self.TC.assertEqual(config.load_settings_interval, get_load_interval(config))
-        self.TC.assertEqual(config.fuel_settings_interval, get_fuel_level_limit(config))
+        self.assertEqual(config.temp_settings_interval, get_temp_interval(config))
+        self.assertEqual(config.load_settings_interval, get_load_interval(config))
+        self.assertEqual(config.fuel_settings_interval, get_fuel_level_limit(config))
         mock_config_end()
 
