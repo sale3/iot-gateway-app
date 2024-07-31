@@ -93,14 +93,35 @@ exe_script.bat -postgres_username you_postgres_username -postgres_password your_
 
 If the 'exe_script.bat' script is used for running the system , it is required to manually create 'mosquitto' folder in the root folder of this repository.
 
-Inside 'mosquitto' folder, 'mosquitto1.conf' and 'mosquitto2.conf' files have to be created. Content of these files was described previously. 
+```
+mkdir mosquitto
+cd mosquitto
+```
 
-Also, inside 'mosquitto' folder it is required to create 'config' folder which contains 'users' file. Content of this file was described previously.
+Inside 'mosquitto' folder, 'mosquitto1.conf' and 'mosquitto2.conf' files have to be created. Content of these files was described [previously](#mosquitto-brokers-setup). 
 
-Last step for 'mosquitto' folder is to create nested 'log' folder.
+```
+touch mosquitto1.conf
+touch mosquitto2.conf
+```
+
+Also, inside 'mosquitto' folder it is required to create 'config' folder which contains 'users' file. Content of this file was described [previously](#mosquitto-brokers-setup).
+```
+mkdir config
+cd config
+touch users
+```
+
+Last step for 'mosquitto' folder is to create nested 'log' folder. In this step, assumption is that user is positioned in the mosquitto folder.
+```
+mkdir log
+```
 
 For everything to work as expected, it is supposed to create 'cloud' folder inside the root folder of this repository. Newly created folder should contain JAR file 
-of the spring boot cloud repository, and the JAR file should be named 'app'.
+of the Spring Boot cloud repository, and the JAR file should be named 'app'. In this step, assumption is that user is positioned in the root folder of this repository.
+```
+mkdir cloud
+```
 
 
 
