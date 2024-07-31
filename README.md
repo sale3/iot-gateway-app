@@ -46,10 +46,14 @@ For a specific terminal session
     ```
 
 ## Mosquitto Brokers Setup
-Two broker must run at the same time, one on port 1883 and the other on 1884. 'Users' file must be specified, with username and password mappings in the following format
+Two broker must run at the same time, one on port 1883 and the other on 1884 and  'users' file must be specified, with username and password mappings in the following format
 
     iot-device:hashed_password
     
+File named 'users' must be inside 'config' folder which has to be manually created inside the directory where mosquitto is installed.
+
+Log files must be inside 'log' folder which has to be manually created inside the directory where mosquitto is installed.
+
 Two config file must be made with the following configurations
     
     allow_anonymous false
@@ -60,7 +64,8 @@ Two config file must be made with the following configurations
     log_dest file log/mosquitto1.log
     password_file config/users
 
-The other configuration file will only differ on line 2 (port will be 1884)
+The other configuration file will differ on line 2 (port will be 1884), line 4 (persistence_file will be mosquitto2.db) and line 6 (log_dest file will be log/mosquitto2.log).
+
 Navigate to the directory where the mosquitto is installed, and run both of the brokers with 
 ```
 start "Sensors Mosquitto" mosquitto -c mosquitto1.conf
@@ -81,11 +86,46 @@ pip install -r requirements.txt
 ```
 
 ## Run
-Run the system using
+First option is to run the system using script:
 ```
 exe_script.bat -postgres_username you_postgres_username -postgres_password your_postgres_password
 ```
-or run manually
+
+If the 'exe_script.bat' script is used for running the system , it is required to manually create 'mosquitto' folder in the root folder of this repository.
+
+```
+mkdir mosquitto
+cd mosquitto
+```
+
+Inside 'mosquitto' folder, 'mosquitto1.conf' and 'mosquitto2.conf' files have to be created. Content of these files was described [previously](#mosquitto-brokers-setup). 
+
+```
+touch mosquitto1.conf
+touch mosquitto2.conf
+```
+
+Also, inside 'mosquitto' folder it is required to create 'config' folder which contains 'users' file. Content of this file was described [previously](#mosquitto-brokers-setup).
+```
+mkdir config
+cd config
+touch users
+```
+
+Last step for 'mosquitto' folder is to create nested 'log' folder. In this step, assumption is that user is positioned in the mosquitto folder.
+```
+mkdir log
+```
+
+For everything to work as expected, it is supposed to create 'cloud' folder inside the root folder of this repository. Newly created folder should contain JAR file 
+of the Spring Boot cloud repository, and the JAR file should be named 'app'. In this step, assumption is that user is positioned in the root folder of this repository.
+```
+mkdir cloud
+```
+
+
+
+Second option is to run the system manually:
 ```
 start "Cloud Service" java -jar app.jar
 start "Sensor Dispatcher" python.exe sensor_devices.py
