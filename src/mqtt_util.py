@@ -20,6 +20,8 @@ gcb_publisher_on_connect
     Connection event handler for publisher.
 gcb_subscriber_on_connect
     Connection event handler for subscriber.
+gcb_on_topic_subscribe
+    Subscribe client to specified topic.
 gcb_on_publish
     Publish event handler.
 gcb_on_message
@@ -64,6 +66,7 @@ import logging.config
 import paho.mqtt.client as mqtt
 from threading import Thread, Event
 from queue import Queue
+import protocol_mqtt
 
 logging.config.fileConfig('logging.conf')
 infoLogger = logging.getLogger('customInfoLogger')
@@ -80,6 +83,8 @@ GCB_TEMP_TOPIC = "gateway_data/temp"
 GCB_LOAD_TOPIC = "gateway_data/load"
 GCB_FUEL_TOPIC = "gateway_data/fuel"
 GCB_STATS_TOPIC = "gateway_data/stats"
+
+DATABASE_FILE = './database/modular-protocols.db'
 
 
 class MQTTConf:
@@ -178,6 +183,20 @@ def gcb_subscriber_on_connect(client, userdata, flags, rc, props):
         errorLogger.error("Failed to establish connection with MQTT broker!")
 
 
+def gcb_on_topic_subscribe(client, topic):
+    """Subscribe client to specified topic.
+
+    Parameters
+    ----------
+    client: paho.mqtt.client.Client
+       Mqtt client.
+    topic: str
+       Gateway-cloud topic.
+
+    """
+    client.subscribe(topic)
+
+
 def gcb_on_publish(client, userdata, result):
     """Gateway-cloud publisher on publish handler.
 
@@ -194,7 +213,7 @@ def gcb_on_publish(client, userdata, result):
 def gcb_on_message(client, userdata, message):
     """Gateway-cloud broker on message handler.
 
-    This function is used for testing whether gateway-cloud broker receives information.
+    This function is used for gateway-cloud broker protocol assignment information receiving.
 
     Parameters
     ----------
@@ -204,6 +223,15 @@ def gcb_on_message(client, userdata, message):
 
     """
     customLogger.debug(f"GATEWAY_CLOUD_BROKER RECEIVED: {str(message.payload.decode('utf-8'))}")
+    data = json.loads(message.payload.decode('utf-8'))
+    type = data["type"]
+    protocols = data["protocols"]
+    if type == "add":
+        protocol_mqtt.add_protocols(protocols)
+    elif type == "remove":
+        protocol_ids = [protocol["id"] for protocol in protocols]
+        if protocol_ids:
+            protocol_mqtt.remove_protocols(protocol_ids)
 
 
 def gcb_init_client(client_id, username, password):
