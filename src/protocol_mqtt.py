@@ -26,8 +26,8 @@ database_file: str
     Location of the database file.
 """
 import logging.config
-from config_util import Config, CONF_PATH
-import mqtt_util
+from src.config_util import Config, CONF_PATH
+import src.mqtt_util as mqtt_util
 import sqlite3
 
 logging.config.fileConfig('logging.conf')
