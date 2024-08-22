@@ -84,8 +84,6 @@ GCB_LOAD_TOPIC = "gateway_data/load"
 GCB_FUEL_TOPIC = "gateway_data/fuel"
 GCB_STATS_TOPIC = "gateway_data/stats"
 
-DATABASE_FILE = './database/modular-protocols.db'
-
 
 class MQTTConf:
     """Class representing higher level mqtt configuration.
