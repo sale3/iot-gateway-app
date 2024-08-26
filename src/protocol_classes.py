@@ -90,7 +90,7 @@ class ProtocolDataEntity(Base):
     protocol_entity : ProtocolEntity
         Reference to the ProtocolEntity instance associated with this protocol data entity.
     """
-    
+
     __tablename__ = 'protocol_data_entity'
 
     id = Column(Integer, primary_key=True, autoincrement=True)
