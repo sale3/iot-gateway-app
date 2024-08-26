@@ -7,8 +7,6 @@ Functions
 ---------
 connect_to_database()
     Used for establishing connection to the sqlite database which stores protocols and protocol data
-set_up_database()
-    Used for creating protocol and protocol data tables in sqlite database if tables don't exist
 add_protocols(protocols)
     Used for adding one or more protocols received from cloud to the sqlite database
 remove_protocols(protocol_ids)
@@ -22,13 +20,13 @@ transport_protocol: str
     JSON key for MQTT transport protocol
 gcb_protocol_topic: str
     MQTT topic for protocols and protocol data
-database_file: str
-    Location of the database file.
 """
 import logging.config
 from src.config_util import Config, CONF_PATH
 import src.mqtt_util as mqtt_util
-import sqlite3
+from sqlalchemy import create_engine, text
+from sqlalchemy.orm import sessionmaker
+from src.protocol_classes import ProtocolEntity, ProtocolDataEntity, set_up_database, create_database_engine
 
 logging.config.fileConfig('logging.conf')
 errorLogger = logging.getLogger('customErrorLogger')
@@ -36,135 +34,92 @@ customLogger = logging.getLogger('customConsoleLogger')
 
 TRANSPORT_PROTOCOL = "tcp"
 GCB_PROTOCOL_TOPIC = "gateway/protocol"
-DATABASE_FILE = './database/modular-protocols.db'
 
 
 def connect_to_database():
     """
-    Function that establishes connection to the sqlite database where the information about protocol and protocol data
-    is stored
+    Function that establishes a session to the SQLite database.
 
     Returns
     -------
-    : sqlite3.Connection
-        Open SQLite database
-
+    : sqlalchemy.orm.session.Session
+        SQLAlchemy session connected to the database.
     """
-    return sqlite3.connect(DATABASE_FILE)
-
-
-def set_up_database():
-    """
-    Function that creates sqlite database that stores protocol and protocol data if it does not already exist
-    Foreign key constraint is also created which enables associated protocol data to be deleted when a certain protocol
-    is deleted
-
-    """
-    conn = connect_to_database()
-    cursor = conn.cursor()
-
-    # Create protocol_entity table
-    cursor.execute('''
-    CREATE TABLE IF NOT EXISTS protocol_entity (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL UNIQUE,
-        assigned INTEGER NOT NULL CHECK (assigned IN (0, 1))
-    )
-    ''')
-
-    # Create protocol_data_entity table
-    cursor.execute('''
-    CREATE TABLE IF NOT EXISTS protocol_data_entity (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        aggregation_method TEXT NOT NULL,
-        can_id INTEGER NOT NULL,
-        divisor INTEGER NOT NULL,
-        mode TEXT NOT NULL,
-        multiplier INTEGER NOT NULL,
-        name TEXT NOT NULL,
-        num_bits INTEGER NOT NULL,
-        offset_value INTEGER NOT NULL,
-        start_bit INTEGER NOT NULL,
-        transmit_interval INTEGER NOT NULL,
-        unit TEXT,
-        protocol INTEGER NOT NULL,
-        FOREIGN KEY (protocol) REFERENCES protocol_entity(id) ON DELETE CASCADE
-    )
-    ''')
-    conn.commit()
-    conn.close()
+    engine = create_database_engine()
+    Session = sessionmaker(bind=engine)
+    session = Session()
+    return session
 
 
 def add_protocols(protocols):
     """
-    Function that insert data into protocol and protocol data tables after the user submits changes in cloud
-    configuration
+    Function that inserts data into protocol and protocol data tables after the user submits changes in
+    cloud configuration.
 
     Args:
     ----
         protocols: list
-            List that stores protocols and their associated data which will be inserted into the database
-
+            List that stores protocols and their associated data which will be inserted into the database.
     """
-    conn = connect_to_database()
-    cursor = conn.cursor()
+    session = connect_to_database()
 
-    for protocol in protocols:
-        protocol_id = protocol["id"]
-        protocol_name = protocol["name"]
-        protocol_assigned = 1 if protocol["assigned"] else 0
+    try:
+        for protocol in protocols:
+            protocol_id = protocol["id"]
+            protocol_name = protocol["name"]
+            protocol_assigned = 1 if protocol["assigned"] else 0
 
-        # Insert protocol
-        cursor.execute('''
-            INSERT INTO protocol_entity (id, name, assigned)
-            VALUES (?, ?, ?)
-            ON CONFLICT(id) DO UPDATE SET
-            name=excluded.name,
-            assigned=excluded.assigned
-        ''', (protocol_id, protocol_name, protocol_assigned))
+            # Insert protocols
+            protocol_entity = session.query(ProtocolEntity).get(protocol_id)
+            if protocol_entity is None:
+                protocol_entity = ProtocolEntity(id=protocol_id, name=protocol_name, assigned=protocol_assigned)
+                session.add(protocol_entity)
 
-        # Insert protocol data
-        for pdata in protocol["protocolData"]:
-            cursor.execute('''
-                INSERT INTO protocol_data_entity (
-                    id, aggregation_method, can_id, divisor, mode,
-                    multiplier, name, num_bits, offset_value,
-                    start_bit, transmit_interval, unit, protocol
-                )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ''', (
-                pdata["id"], pdata["aggregationMethod"], pdata["canId"], pdata["divisor"], pdata["mode"],
-                pdata["multiplier"], pdata["name"], pdata["numBits"], pdata["offsetValue"],
-                pdata["startBit"], pdata["transmitInterval"], pdata["unit"], protocol_id
-            ))
+            # Insert protocol data
+            for pdata in protocol["protocolData"]:
+                protocol_data_entity = session.query(ProtocolDataEntity).filter_by(id=pdata["id"],
+                                                                                   protocol=protocol_id).first()
+                if protocol_data_entity is None:
+                    protocol_data_entity = ProtocolDataEntity(
+                        id=pdata["id"], aggregation_method=pdata["aggregationMethod"], can_id=pdata["canId"],
+                        divisor=pdata["divisor"], mode=pdata["mode"], multiplier=pdata["multiplier"],
+                        name=pdata["name"], num_bits=pdata["numBits"], offset_value=pdata["offsetValue"],
+                        start_bit=pdata["startBit"], transmit_interval=pdata["transmitInterval"], unit=pdata["unit"],
+                        protocol=protocol_id
+                    )
+                    session.add(protocol_data_entity)
 
-    conn.commit()
-    conn.close()
+        session.commit()
+    except Exception:
+        # Rollback the transaction in case of error
+        session.rollback()
+    finally:
+        session.close()
 
 
 def remove_protocols(protocol_ids):
     """
-    Function that removes data from protocol and protocol data tables after the user submits changes in cloud
-    configuration
+    Function that removes data from protocol and protocol data tables after the user submits changes in
+    cloud configuration.
 
     Args:
     ----
-        protocols_ids: list
-            List that stores protocol ids which will be deleted from the database
-
+        protocol_ids: list
+            List that stores protocol IDs which will be deleted from the database.
     """
-    conn = connect_to_database()
-    cursor = conn.cursor()
-    cursor.execute('PRAGMA foreign_keys=ON;')
+    session = connect_to_database()
 
-    # Delete protocols (protocol data will be deleted on cascade)
-    query_protocol = 'DELETE FROM protocol_entity WHERE id IN ({})'.format(
-        ','.join('?' for _ in protocol_ids)
-    )
-    cursor.execute(query_protocol, protocol_ids)
-
-    conn.commit()
-    conn.close()
+    try:
+        # Enable cascade delete
+        session.execute(text('PRAGMA foreign_keys=ON;'))
+        # Delete protocols
+        session.query(ProtocolEntity).filter(ProtocolEntity.id.in_(protocol_ids)).delete(synchronize_session=False)
+        session.commit()
+    except Exception:
+        # Rollback the transaction in case of error
+        session.rollback()
+    finally:
+        session.close()
 
 
 def main():
