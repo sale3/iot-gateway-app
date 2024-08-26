@@ -24,7 +24,7 @@ gcb_protocol_topic: str
 import logging.config
 from src.config_util import Config, CONF_PATH
 import src.mqtt_util as mqtt_util
-from sqlalchemy import create_engine, text
+from sqlalchemy import text
 from sqlalchemy.orm import sessionmaker
 from src.protocol_classes import ProtocolEntity, ProtocolDataEntity, set_up_database, create_database_engine
 

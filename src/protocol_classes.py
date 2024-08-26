@@ -17,7 +17,7 @@ set_up_database()
     Function that creates all tables in the SQLite database if they do not already exist.
 """
 from sqlalchemy import create_engine, Column, Integer, String, ForeignKey, CheckConstraint
-from sqlalchemy.orm import declarative_base, relationship, sessionmaker
+from sqlalchemy.orm import declarative_base, relationship
 import os
 
 Base = declarative_base()
@@ -123,7 +123,6 @@ def create_database_engine(db_folder='database', db_filename='modular-protocols.
     : sqlalchemy.engine.base.Engine
         SQLAlchemy engine connected to the database.
     """
-
     # Ensure the database folder exists
     if not os.path.exists(db_folder):
         os.makedirs(db_folder)
