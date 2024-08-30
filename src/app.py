@@ -375,7 +375,7 @@ def parse_protocol_data(config, flag, data_tuple, gcb_queue):
             else:
                 infoLogger.warning("There is no sensor data to handle!")
         time.sleep(interval)
-    
+
     # After user removed protocol from the device, delete it from processed_ids
     del processed_ids[data_tuple[0]]
     customLogger.debug("Protocol data with name " + data_tuple[6] + " stopped!")
