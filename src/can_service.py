@@ -133,12 +133,12 @@ def convert_to_tuple(protocol_data_entity):
     Convert a ProtocolDataEntity instance to a tuple.
 
     Args:
-    ----
+    -----
         protocol_data_entity: ProtocolDataEntity
             An instance of ProtocolDataEntity.
 
     Returns:
-    ----
+    --------
         tuple: A tuple containing the values of ProtocolDataEntity attributes.
     """
     return (
@@ -176,7 +176,6 @@ def extract_bits(byte_array, start_bit, length):
     ----
         int: The extracted bit field value.
     """
-
     # Convert byte array to bits
     bits = ''.join(f'{byte:08b}' for byte in byte_array)
     reversed_bits = bits[::-1]
@@ -785,7 +784,6 @@ class CANListener (Listener):
         # msg.data is a byte array, need to turn it into a single value
         int_value = int.from_bytes(msg.data, byteorder="big", signed=True)
         value = int_value / 10.0
-
         if self.temp_client is not None:
             self.temp_client.try_reconnect()
         if self.load_client is not None:
@@ -794,12 +792,10 @@ class CANListener (Listener):
             self.fuel_client.try_reconnect()
         if self.protocol_client is not None:
             self.protocol_client.try_reconnect()
-        
         # Extract CAN ID value to search for it in the database
         hex_string_without_prefix = hex(msg.arbitration_id)[2:]
         integer_value = int(hex_string_without_prefix, 10)
         rows = get_data_by_can_id(integer_value)
-
         with lock:
             for protocol_data_entity in rows:
                 row = convert_to_tuple(protocol_data_entity)
