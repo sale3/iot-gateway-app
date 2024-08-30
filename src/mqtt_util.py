@@ -246,9 +246,9 @@ def gcb_on_message(client, userdata, message):
             protocol_mqtt.update_protocols_on_startup(protocols)
 
 
-
 def gcb_init_client(client_id, username, password):
-    """Initialize gateway-cloud broker client.
+    """
+    Initialize gateway-cloud broker client.
 
     This function is not intended to be used directly. Instead, it is implicitly called
     when publisher or subscriber are created.
@@ -274,7 +274,8 @@ def gcb_init_client(client_id, username, password):
 
 
 def gcb_init_publisher(client_id, username, password):
-    """Initialize gateway-cloud broker publisher.
+    """
+    Initialize gateway-cloud broker publisher.
 
     Parameters
     ----------
