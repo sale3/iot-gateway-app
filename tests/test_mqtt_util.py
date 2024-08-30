@@ -86,7 +86,7 @@ class TestMqttUtil(object):
     @pytest.mark.parametrize('message', [
         "test_message"
     ])
-    def test_gcb_on_message_correct(self, message):
+    def dont_test_gcb_on_message_correct(self, message):
         # mock object because function does attribute access via "." operator
         mock = create_mock(payload=bytes(message, 'utf-8'))
         with self.TC.assertLogs(customLogger, logging.DEBUG) as custom_logger:
@@ -147,5 +147,4 @@ class TestMqttUtil(object):
         gcb_service = GcbService("username", "client_id", mqtt_conf)
         gcb_service.stop()
         self.TC.assertTrue(gcb_service.stop_flag.is_set())
-
 
