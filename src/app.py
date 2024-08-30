@@ -64,6 +64,8 @@ LOAD_ALARM_TOPIC: str
 FUEL_ALARM_TOPIC: str
     MQTT alarm topic for fuel alarms
     Http status code.
+PROTOCOL_TOPIC: str
+    MQTT protocol data topic
 HTTP_OK: int
     Http status code.
 HTTP_NO_CONTENT: int
@@ -73,17 +75,22 @@ QOS: int
 mqtt_broker_local: str
     Reference of local mqtt broker
 """
-import signal
+
 import auth
 import stats_service
 import data_service
 import time
 import logging.config
 import paho.mqtt.client as mqtt
+import atexit
+import ast
+import re
+import signal
 from threading import Thread, Event
 from queue import Queue
 from mqtt_util import MQTTConf, GcbService, \
-    GCB_TEMP_TOPIC, GCB_LOAD_TOPIC, GCB_FUEL_TOPIC, GCB_STATS_TOPIC
+    GCB_TEMP_TOPIC, GCB_LOAD_TOPIC, GCB_FUEL_TOPIC, GCB_STATS_TOPIC, GCB_PROTOCOL_TOPIC
+from src.protocol_mqtt import start_protocol_mqtt, processed_ids
 from config_util import ConfFlags, get_temp_interval, get_fuel_level_limit, \
     start_config_observer
 from mqtt_utils import MQTTClient
@@ -124,6 +131,7 @@ TRANSPORT_PROTOCOL = "tcp"
 TEMP_TOPIC = "sensors/temperature"
 LOAD_TOPIC = "sensors/arm-load"
 FUEL_TOPIC = "sensors/fuel-level"
+PROTOCOL_TOPIC = "sensors/protocol"
 HTTP_UNAUTHORIZED = 401
 HTTP_OK = 200
 HTTP_NO_CONTENT = 204
@@ -132,6 +140,8 @@ QOS = 2
 TEMP_ALARM_TOPIC = "alarms/temperature"
 LOAD_ALARM_TOPIC = "alarms/load"
 FUEL_ALARM_TOPIC = "alarms/fuel"
+
+protocol_data = {}
 
 
 def signup_periodically(key, username, password, time_pattern, url, interval):
@@ -241,7 +251,134 @@ def on_connect_fuel_handler(client, userdata, flags, rc, props):
         customLogger.critical(
             "Fuel data handler failed to establish connection with MQTT broker!")
 
+
+def on_connect_protocol_data_handler(client, userdata, flags, rc, props):
+    """
+    Logic executed after successfully connecting protocol data sensor to MQTT broker.
+
+    Parameters
+    ----------
+    client: mqtt.client
+    userdata: object
+    flags:
+    rc: int
+    props:
+    """
+    if rc == 0:
+        infoLogger.info(
+            "Protocol data handler successfully established connection with MQTT broker!")
+        customLogger.info(
+            "Protocol data handler successfully established connection with MQTT broker!")
+        client.subscribe(PROTOCOL_TOPIC, qos=QOS)
+    else:
+        errorLogger.error(
+            "Protocol data handler failed to establish connection with MQTT broker!")
+        customLogger.critical(
+            "Protocol data handler failed to establish connection with MQTT broker!")
+
+
 # iot data aggregation and forwarding to cloud
+
+
+def collect_protocol_data(config, flag, gcb_queue):
+    """
+    Protocol data handler logic.
+
+    Establishes connection with MQTT broker. Listens for incoming messages. Receives the message and starts
+    a new thread if it wasn't started. Appends data in the dictionary for a certain thread.
+
+    Parameters
+    ----------
+    config: Config
+        Configuration object
+    flag: multithreading.Event
+        Object used for stopping protocol data process.
+    gcb_queue: queue.Queue
+        Belongs to some GcbService instance and is used to queue payload that is to
+        be sent via mqtt.
+    """
+    sensors_broker_client = MQTTClient(
+        "protocol-data-handler-mqtt-client",
+        transport_protocol=TRANSPORT_PROTOCOL,
+        protocol_version=mqtt.MQTTv5,
+        mqtt_username=config.mqtt_broker_username,
+        mqtt_pass=config.mqtt_broker_password,
+        broker_address=config.mqtt_broker_address,
+        broker_port=config.mqtt_broker_port,
+        keepalive=config.temp_settings_interval * 3,
+        infoLogger=infoLogger,
+        errorLogger=errorLogger,
+        flag=flag,
+        sensor_type="PROTOCOL",
+    )
+
+    def on_message_handler(client, userdata, message):
+        # Extract tuple which contains protocol data
+        data = message.payload.decode("utf-8")
+        match = re.search(r"data=\((.*)\)", data)
+        data_str = "(" + match.group(1) + ")"
+        data_tuple = ast.literal_eval(data_str)
+        # If protocol data identifier is not in processed_ids
+        # Start a new thread
+        if data_tuple[0] not in processed_ids:
+            protocol_data[data_tuple[0]] = []
+            thread = Thread(target=parse_protocol_data, args=(config, flag, data_tuple, gcb_queue))
+            processed_ids[data_tuple[0]] = {"thread": thread, "stopped": False}
+            thread.start()
+        # Append new data so that protocol data can work with it
+        protocol_data[data_tuple[0]].append(data)
+        customLogger.info("Received protocol data: " + str(data))
+
+    # On program exit, disconnect Protocol MQTT broker
+    def cleanup():
+        sensors_broker_client.disconnect()
+
+    # Register cleanup function
+    atexit.register(cleanup)
+
+    sensors_broker_client.set_on_connect(on_connect_protocol_data_handler)
+    sensors_broker_client.set_on_message(on_message_handler)
+    sensors_broker_client.connect()
+
+
+def parse_protocol_data(config, flag, data_tuple, gcb_queue):
+    """
+    Thread function to parse protocol data.
+
+    Parameters
+    ----------
+    config: Config
+        Configuration object
+    flag: multithreading.Event
+        Object used for stopping protocol data process.
+    gcb_queue: queue.Queue
+        Belongs to some GcbService instance and is used to queue payload that is to
+        be sent via mqtt.
+    """
+    interval = data_tuple[10]
+    # If program still runs or protocol data is not stopped
+    # Protocol data is stopped in protocol_mqtt module if user remove the protocol from device
+    while not flag.is_set() and processed_ids[data_tuple[0]]["stopped"] is False:
+        data = []
+        for i in protocol_data[data_tuple[0]]:
+            data.append(i)
+        protocol_data[data_tuple[0]].clear()
+        if len(data) > 0:
+            # Aggregate data
+            payload = data_service.handle_protocol_data(data, config.time_format)
+            if payload != EMPTY_PAYLOAD:
+                if data_tuple[4] == "OUTPUT":
+                    # Send data to cloud
+                    GcbService.push_message(gcb_queue, GCB_PROTOCOL_TOPIC, payload)
+                    customLogger.info("PROTOCOL DATA PUBLISHED TO CLOUD")
+                customLogger.info("PROTOCOL DATA PUBLISHED TO CLOUD")
+            else:
+                infoLogger.warning("There is no sensor data to handle!")
+        time.sleep(interval)
+    
+    # After user removed protocol from the device, delete it from processed_ids
+    del processed_ids[data_tuple[0]]
+    customLogger.debug("Protocol data with name " + data_tuple[6] + " stopped!")
 
 
 def collect_temperature_data(config, flag, conf_flag, stats_queue, gcb_queue):
@@ -620,12 +757,14 @@ def main():
             temp_handler_flag = Event()
             load_handler_flag = Event()
             fuel_handler_flag = Event()
+            protocol_handler_flag = Event()
 
             BetterSignalHandler([signal.SIGINT,
                                  signal.SIGTERM],
                                 [temp_handler_flag,
                                  load_handler_flag,
                                  fuel_handler_flag,
+                                 protocol_handler_flag,
                                  main_execution_flag])
 
             customLogger.debug("Starting workers!")
@@ -663,11 +802,25 @@ def main():
                     gcb_service.queue
                 ))
             fuel_data_handler.start()
+            protocol_data_handler = Thread(
+                target=collect_protocol_data,
+                args=(
+                    config,
+                    protocol_handler_flag,
+                    gcb_service.queue
+                )
+            )
+            protocol_data_handler.start()
             time.sleep(1)
+
+            # Protocol MQTT module is reponsible for gateway-cloud protocol communication
+            start_protocol_mqtt(main_execution_flag)
+
             # waiting fow workers to stop
             temperature_data_handler.join()
             load_data_handler.join()
             fuel_data_handler.join()
+            protocol_data_handler.join()
             customLogger.debug("Workers stopped!")
 
             conf_observer.stop()
