@@ -173,7 +173,7 @@ def extract_bits(byte_array, start_bit, length):
             The length of the field in bits.
 
     Returns:
-    ----
+    -------
         int: The extracted bit field value.
     """
     # Convert byte array to bits
