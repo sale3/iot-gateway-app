@@ -133,12 +133,12 @@ def convert_to_tuple(protocol_data_entity):
     Convert a ProtocolDataEntity instance to a tuple.
 
     Args:
-    -----
+    ----
         protocol_data_entity: ProtocolDataEntity
             An instance of ProtocolDataEntity.
 
     Returns:
-    --------
+    -------
         tuple: A tuple containing the values of ProtocolDataEntity attributes.
     """
     return (
@@ -810,8 +810,7 @@ class CANListener (Listener):
                                 time.strftime(
                                     TIME_FORMAT, time.localtime())), row[11], str(row)), QOS)
                     customLogger.info(
-                        "Protocol data: " +
-                        PROTOCOL_DATA_PATTERN.format(
+                        "Protocol data: " + PROTOCOL_DATA_PATTERN.format(
                             "{:.2f}".format(value),
                             str(
                                 time.strftime(
