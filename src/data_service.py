@@ -140,13 +140,13 @@ def handle_protocol_data(data, time_format):
     # Considering aggregation method return result
     match aggregation_method:
         case 'AVG':
-            return {"dataId":id, "value": round(data_sum / len(data), 2), "time": time_value}
+            return {"dataId": id, "value": round(data_sum / len(data), 2), "time": time_value}
         case 'SUM':
-            return {"dataId":id, "value": data_sum, "time": time_value}
+            return {"dataId": id, "value": data_sum, "time": time_value}
         case 'MIN':
-            return {"dataId":id, "value": min_value, "time": time_value}
+            return {"dataId": id, "value": min_value, "time": time_value}
         case 'MAX':
-            return {"dataId":id, "value": max_value, "time": time_value}
+            return {"dataId": id, "value": max_value, "time": time_value}
 
 
 def handle_temperature_data(data, time_format):
