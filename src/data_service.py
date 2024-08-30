@@ -33,6 +33,9 @@ EMPTY_PAYLOAD: dict
     in data processing.
 """
 import time
+import sys
+import re
+import ast
 import logging.config
 
 logging.config.fileConfig('logging.conf')
@@ -80,6 +83,70 @@ def parse_incoming_data(data, data_type):
     except BaseException:
         errorLogger.error("Invalid " + data_type + " data format! - " + data)
     return data_sum, unit
+
+
+def handle_protocol_data(data, time_format):
+    """
+    Processes protocol data and generates a summarized payload based on the aggregation method.
+
+    Extracts relevant values from the data and applies transformations based on the
+    provided protocol parameters. Computes summary statistics (average, sum, min, max)
+    of the processed data values and returns a payload including the aggregated result
+    and the current time.
+
+    Parameters
+    ----------
+    data: list of str
+        List containing protocol data, where each element is a string representation
+        of the data in a specific format.
+    time_format: str
+        Time format string to format the current time according to the requirements
+        of the cloud services.
+
+    Returns
+    -------
+    payload: dict
+        Dictionary containing the aggregated result and the current time. The structure
+        of the dictionary varies based on the specified aggregation method.
+    """
+    # Extract tuple from received data
+    match = re.search(r"data=\((.*)\)", data[0])
+    data_str = "(" + match.group(1) + ")"
+    data_tuple = ast.literal_eval(data_str)
+
+    id = data_tuple[0]
+    aggregation_method = data_tuple[1]
+    divisor = data_tuple[3]
+    multiplier = data_tuple[5]
+    offset = data_tuple[8]
+    data_sum = 0
+    max_value = sys.float_info.min
+    min_value = sys.float_info.max
+    # For each info in data apply operations extracted from the database
+    for info in data:
+        data_value, parsed_unit = parse_incoming_data(str(info), "protocol_data")
+        data_sum += offset
+        if multiplier > 0:
+            data_value *= multiplier
+        if divisor > 0:
+            data_value /= divisor
+        if data_value > max_value:
+            max_value = data_value
+        if data_value < min_value:
+            min_value = data_value
+
+    time_value = time.strftime(time_format, time.localtime())
+
+    # Considering aggregation method return result
+    match aggregation_method:
+        case 'AVG':
+            return {"dataId":id, "value": round(data_sum / len(data), 2), "time": time_value}
+        case 'SUM':
+            return {"dataId":id, "value": data_sum, "time": time_value}
+        case 'MIN':
+            return {"dataId":id, "value": min_value, "time": time_value}
+        case 'MAX':
+            return {"dataId":id, "value": max_value, "time": time_value}
 
 
 def handle_temperature_data(data, time_format):
