@@ -224,7 +224,7 @@ def get_current_protocol_ids():
     Returns protocol identifiers which are sent to cloud on app startup.
 
     Returns
-    ----------
+    -------
     ids : list
         List of protocol identifiers.
     """
@@ -249,7 +249,7 @@ def get_data_by_can_id(can_id):
     ----------
     can_id : int
         CAN identifier.
-        
+
     Returns
     -------
     results : list
@@ -296,16 +296,15 @@ def start_protocol_startup_client(config):
     config : Config
         Enables reading parameters from config file.
     """
-    client = mqtt_util.gcb_init_publisher(
-        "startup-protocol-client-id",
-        config.gateway_cloud_broker_iot_username,
-        config.gateway_cloud_broker_iot_password)
+    client = mqtt_util.gcb_init_publisher("startup-protocol-client-id",
+                                          config.gateway_cloud_broker_iot_username,
+                                          config.gateway_cloud_broker_iot_password)
 
     protocol_ids = get_current_protocol_ids()
     protocol_ids_formatted = {
         "protocol_ids": protocol_ids
     }
-    mqtt_util.gcb_connect(client,config.gateway_cloud_broker_address, config.gateway_cloud_broker_port)
+    mqtt_util.gcb_connect(client, config.gateway_cloud_broker_address, config.gateway_cloud_broker_port)
     client.publish("gateway/protocol-startup", json.dumps(protocol_ids_formatted), 2)
     client.loop_start()
     # Without sleep client disconnects too fast and doesn't send MQTT message, must be a thread
@@ -317,6 +316,7 @@ def start_protocol_startup_client(config):
 def start_protocol_mqtt(main_execution_flag):
     """
     Start Protocol MQTT startup module, function called from app module.
+
     Parameters
     ----------
     main_execution_flag : Event
@@ -327,10 +327,9 @@ def start_protocol_mqtt(main_execution_flag):
     config = Config(CONF_PATH, errorLogger, customLogger)
     config.try_open()
     # Start threads for MQTT clients.
-    thread1 = threading.Thread(target=start_protocol_client, args=(config ,main_execution_flag,))
-    thread2 = threading.Thread(target=start_protocol_startup_client, args=(config,))
+    thread1 = threading.Thread(target=start_protocol_client, args=(config, main_execution_flag, ))
+    thread2 = threading.Thread(target=start_protocol_startup_client, args=(config, ))
     thread1.start()
     thread2.start()
     thread2.join()
     thread1.join()
-
