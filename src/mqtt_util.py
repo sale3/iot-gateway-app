@@ -58,6 +58,8 @@ GCB_FUEL_TOPIC
     Fuel topic identifier.
 GCB_STATS_TOPIC
     Stats topic identifier.
+GCB_PROTOCOL_TOPIC
+    Protocol topic identifier.
 
 """
 import json
@@ -83,6 +85,7 @@ GCB_TEMP_TOPIC = "gateway_data/temp"
 GCB_LOAD_TOPIC = "gateway_data/load"
 GCB_FUEL_TOPIC = "gateway_data/fuel"
 GCB_STATS_TOPIC = "gateway_data/stats"
+GCB_PROTOCOL_TOPIC = "gateway_data/protocol"
 
 
 class MQTTConf:
@@ -223,13 +226,25 @@ def gcb_on_message(client, userdata, message):
     customLogger.debug(f"GATEWAY_CLOUD_BROKER RECEIVED: {str(message.payload.decode('utf-8'))}")
     data = json.loads(message.payload.decode('utf-8'))
     type = data["type"]
-    protocols = data["protocols"]
-    if type == "add":
-        protocol_mqtt.add_protocols(protocols)
-    elif type == "remove":
-        protocol_ids = [protocol["id"] for protocol in protocols]
-        if protocol_ids:
-            protocol_mqtt.remove_protocols(protocol_ids)
+    action = data["action"]
+    # Protocol assignment to the device from cloud
+    if type == "protocol_assignment":
+        protocols = data["protocols"]
+        if action == "add":
+            protocol_mqtt.add_protocols(protocols)
+        if action == "remove":
+            protocol_ids = [protocol["id"] for protocol in protocols]
+            if protocol_ids:
+                protocol_mqtt.remove_protocols(protocol_ids)
+    # Protocols fetching from device to cloud on startup
+    elif type == "startup_fetching":
+        protocols = data["protocols"]
+        if action == "delete":
+            if protocols:
+                protocol_mqtt.remove_protocols(protocols)
+        if action == "add":
+            protocol_mqtt.update_protocols_on_startup(protocols)
+
 
 
 def gcb_init_client(client_id, username, password):
