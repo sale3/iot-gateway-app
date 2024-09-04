@@ -86,7 +86,7 @@ FUEL_TOPIC = "sensors/fuel-level"
 PROTOCOL_TOPIC = "sensors/protocol"
 
 DATA_PATTERN = "[ value={} , time={} , unit={} ]"
-PROTOCOL_DATA_PATTERN = "[ value={} , time={} , unit={}, data={} ]"
+PROTOCOL_DATA_PATTERN = "[ value={} , time={} , data_id={} ]"
 TIME_FORMAT = "%d.%m.%Y %H:%M:%S"
 CELZIUS = "C"
 KG = "kg"
@@ -126,36 +126,6 @@ TEMP_ALARM_TOPIC = "alarms/temperature"
 LOAD_ALARM_TOPIC = "alarms/load"
 FUEL_ALARM_TOPIC = "alarms/fuel"
 lock = threading.Lock()
-
-
-def convert_to_tuple(protocol_data_entity):
-    """
-    Convert a ProtocolDataEntity instance to a tuple.
-
-    Args:
-    ----
-        protocol_data_entity: ProtocolDataEntity
-            An instance of ProtocolDataEntity.
-
-    Returns:
-    -------
-        tuple: A tuple containing the values of ProtocolDataEntity attributes.
-    """
-    return (
-        protocol_data_entity.id,
-        protocol_data_entity.aggregation_method,
-        protocol_data_entity.can_id,
-        protocol_data_entity.divisor,
-        protocol_data_entity.mode,
-        protocol_data_entity.multiplier,
-        protocol_data_entity.name,
-        protocol_data_entity.num_bits,
-        protocol_data_entity.offset_value,
-        protocol_data_entity.start_bit,
-        protocol_data_entity.transmit_interval,
-        protocol_data_entity.unit,
-        protocol_data_entity.protocol
-    )
 
 
 def extract_bits(byte_array, start_bit, length):
@@ -792,32 +762,35 @@ class CANListener (Listener):
             self.fuel_client.try_reconnect()
         if self.protocol_client is not None:
             self.protocol_client.try_reconnect()
-        # Extract CAN ID value to search for it in the database
-        hex_string_without_prefix = hex(msg.arbitration_id)[2:]
-        integer_value = int(hex_string_without_prefix, 10)
-        rows = get_data_by_can_id(integer_value)
-        with lock:
-            for protocol_data_entity in rows:
-                row = convert_to_tuple(protocol_data_entity)
-                # Only OUTPUT messages are parsed
-                if row[4] == "OUTPUT":
-                    # Extract value from relevant bits
-                    extracted_value = extract_bits(msg.data, row[9], row[7])
-                    extracted_double_value = extracted_value / 10.0
-                    self.protocol_client.publish(
-                        PROTOCOL_TOPIC, PROTOCOL_DATA_PATTERN.format(
-                            "{:.2f}".format(extracted_double_value), str(
-                                time.strftime(
-                                    TIME_FORMAT, time.localtime())), row[11], str(row)), QOS)
-                    customLogger.info(
-                        "Protocol data: " + PROTOCOL_DATA_PATTERN.format(
-                            "{:.2f}".format(value),
-                            str(
-                                time.strftime(
-                                    TIME_FORMAT,
-                                    time.localtime())),
-                            row[11],
-                            str(row)))
+            # Extract CAN ID value to search for it in the database
+            hex_string_without_prefix = hex(msg.arbitration_id)[2:]
+            integer_value = int(hex_string_without_prefix, 10)
+            # Get all protocol data based on CAN ID (ProtocolDataEntity objects)
+            rows = get_data_by_can_id(integer_value)
+
+            with lock:
+                for protocol_data_entity in rows:
+                    # Only OUTPUT messages are parsed, INPUT sent from cloud
+                    if protocol_data_entity.mode == "OUTPUT":
+                        # Extract value from relevant bits (range from start bit to start bit + num of bits)
+                        extracted_value = extract_bits(msg.data, protocol_data_entity.start_bit,
+                                                       protocol_data_entity.num_bits)
+                        extracted_double_value = extracted_value / 10.0
+                        # Send message to app module via MQTT
+                        self.protocol_client.publish(
+                            PROTOCOL_TOPIC, PROTOCOL_DATA_PATTERN.format(
+                                "{:.2f}".format(extracted_double_value), str(
+                                    time.strftime(
+                                        TIME_FORMAT, time.localtime())),
+                                protocol_data_entity.id), QOS)
+                        customLogger.info(
+                            "Protocol data: " +
+                            PROTOCOL_DATA_PATTERN.format(
+                                "{:.2f}".format(value),
+                                str(
+                                    time.strftime(
+                                        TIME_FORMAT,
+                                        time.localtime())), protocol_data_entity.id))
 
         if hex(msg.arbitration_id) == "0x123" and self.temp_client is not None:
             self.temp_client.publish(
