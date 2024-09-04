@@ -69,7 +69,7 @@ from mqtt_utils import MQTTClient
 from can.listener import Listener
 from can.interface import Bus
 from config_util import Config
-from protocol_mqtt import get_data_by_can_id
+from can_protocol import get_data_by_can_id
 
 logging.config.fileConfig('logging.conf')
 infoLogger = logging.getLogger('customInfoLogger')
