@@ -83,14 +83,13 @@ import time
 import logging.config
 import paho.mqtt.client as mqtt
 import atexit
-import ast
 import re
 import signal
 from threading import Thread, Event
 from queue import Queue
 from mqtt_util import MQTTConf, GcbService, \
     GCB_TEMP_TOPIC, GCB_LOAD_TOPIC, GCB_FUEL_TOPIC, GCB_STATS_TOPIC, GCB_PROTOCOL_TOPIC
-from src.protocol_mqtt import start_protocol_mqtt, processed_ids
+from src.can_protocol import start_protocol_mqtt, processed_ids
 from config_util import ConfFlags, get_temp_interval, get_fuel_level_limit, \
     start_config_observer
 from mqtt_utils import MQTTClient
@@ -313,20 +312,33 @@ def collect_protocol_data(config, flag, gcb_queue):
     )
 
     def on_message_handler(client, userdata, message):
-        # Extract tuple which contains protocol data
+        # Extract data id and value
         data = message.payload.decode("utf-8")
-        match = re.search(r"data=\((.*)\)", data)
-        data_str = "(" + match.group(1) + ")"
-        data_tuple = ast.literal_eval(data_str)
+        data_id_pattern = r"data_id=(\d+)"
+        value_pattern = r"value=(\d+)"
+
+        # Regex search
+        data_id_match = re.search(data_id_pattern, data)
+        data_id_str = data_id_match.group(1)
+        data_id = int(data_id_str)
+        value_match = re.search(value_pattern, data)
+        value_str = value_match.group(1)
+        value = float(value_str)
+
+        protocol_data_entity = get_data_by_id(data_id)
+
         # If protocol data identifier is not in processed_ids
         # Start a new thread
-        if data_tuple[0] not in processed_ids:
-            protocol_data[data_tuple[0]] = []
-            thread = Thread(target=parse_protocol_data, args=(config, flag, data_tuple, gcb_queue))
-            processed_ids[data_tuple[0]] = {"thread": thread, "stopped": False}
+        if protocol_data_entity.id not in processed_ids:
+            # Dictionary key is supposed to be ProtocolDataEntity id
+            # Value for each key is thread started and information whether the thread is active
+            protocol_data[protocol_data_entity.id] = []
+            thread = Thread(target=parse_protocol_data, args=(config, flag, protocol_data_entity, gcb_queue))
+            processed_ids[protocol_data_entity.id] = {"thread": thread, "stopped": False}
             thread.start()
-        # Append new data so that protocol data can work with it
-        protocol_data[data_tuple[0]].append(data)
+        # Append new data so that protocol data thread can work with it
+        # This data is later removed and aggregated
+        protocol_data[protocol_data_entity.id].append(value)
         customLogger.info("Received protocol data: " + str(data))
 
     # On program exit, disconnect Protocol MQTT broker
@@ -341,7 +353,7 @@ def collect_protocol_data(config, flag, gcb_queue):
     sensors_broker_client.connect()
 
 
-def parse_protocol_data(config, flag, data_tuple, gcb_queue):
+def parse_protocol_data(config, flag, protocol_data_entity, gcb_queue):
     """
     Thread function to parse protocol data.
 
@@ -351,23 +363,27 @@ def parse_protocol_data(config, flag, data_tuple, gcb_queue):
         Configuration object
     flag: multithreading.Event
         Object used for stopping protocol data process.
+    protocol_data_entity: ProtocolDataEntity
+        Object which parses data based on class attributes.
     gcb_queue: queue.Queue
         Belongs to some GcbService instance and is used to queue payload that is to
         be sent via mqtt.
     """
-    interval = data_tuple[10]
+    interval = protocol_data_entity.transmit_interval
     # If program still runs or protocol data is not stopped
     # Protocol data is stopped in protocol_mqtt module if user remove the protocol from device
-    while not flag.is_set() and processed_ids[data_tuple[0]]["stopped"] is False:
+    while not flag.is_set() and processed_ids[protocol_data_entity.id]["stopped"] is False:
         data = []
-        for i in protocol_data[data_tuple[0]]:
+        # Extract data for a certain protocol data
+        for i in protocol_data[protocol_data_entity.id]:
             data.append(i)
-        protocol_data[data_tuple[0]].clear()
+        # Clear extracted data so there are no duplicates
+        protocol_data[protocol_data_entity.id].clear()
         if len(data) > 0:
             # Aggregate data
-            payload = data_service.handle_protocol_data(data, config.time_format)
+            payload = data_service.handle_protocol_data(protocol_data_entity, data, config.time_format)
             if payload != EMPTY_PAYLOAD:
-                if data_tuple[4] == "OUTPUT":
+                if protocol_data_entity.mode == "OUTPUT":
                     # Send data to cloud
                     GcbService.push_message(gcb_queue, GCB_PROTOCOL_TOPIC, payload)
                     customLogger.info("PROTOCOL DATA PUBLISHED TO CLOUD")
@@ -377,8 +393,8 @@ def parse_protocol_data(config, flag, data_tuple, gcb_queue):
         time.sleep(interval)
 
     # After user removed protocol from the device, delete it from processed_ids
-    del processed_ids[data_tuple[0]]
-    customLogger.debug("Protocol data with name " + data_tuple[6] + " stopped!")
+    del processed_ids[protocol_data_entity.id]
+    customLogger.debug("Protocol data with name " + protocol_data_entity.name + " stopped!")
 
 
 def collect_temperature_data(config, flag, conf_flag, stats_queue, gcb_queue):
