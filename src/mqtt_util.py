@@ -66,7 +66,7 @@ import logging.config
 import paho.mqtt.client as mqtt
 from threading import Thread, Event
 from queue import Queue
-import src.can_protocol as protocol_mqtt
+import src.can_protocol as can_protocol
 
 logging.config.fileConfig('logging.conf')
 infoLogger = logging.getLogger('customInfoLogger')
@@ -225,11 +225,11 @@ def gcb_on_message(client, userdata, message):
     type = data["type"]
     protocols = data["protocols"]
     if type == "add":
-        protocol_mqtt.add_protocols(protocols)
+        can_protocol.add_protocols(protocols)
     elif type == "remove":
         protocol_ids = [protocol["id"] for protocol in protocols]
         if protocol_ids:
-            protocol_mqtt.remove_protocols(protocol_ids)
+            can_protocol.remove_protocols(protocol_ids)
 
 
 def gcb_init_client(client_id, username, password):
