@@ -68,7 +68,7 @@ import logging.config
 import paho.mqtt.client as mqtt
 from threading import Thread, Event
 from queue import Queue
-import src.protocol_mqtt as protocol_mqtt
+import src.can_protocol as can_protocol
 
 logging.config.fileConfig('logging.conf')
 infoLogger = logging.getLogger('customInfoLogger')
@@ -226,24 +226,25 @@ def gcb_on_message(client, userdata, message):
     customLogger.debug(f"GATEWAY_CLOUD_BROKER RECEIVED: {str(message.payload.decode('utf-8'))}")
     data = json.loads(message.payload.decode('utf-8'))
     type = data["type"]
-    action = data["action"]
     # Protocol assignment to the device from cloud
     if type == "protocol_assignment":
+        action = data["action"]
         protocols = data["protocols"]
         if action == "add":
-            protocol_mqtt.add_protocols(protocols)
+            can_protocol.add_protocols(protocols)
         if action == "remove":
             protocol_ids = [protocol["id"] for protocol in protocols]
             if protocol_ids:
-                protocol_mqtt.remove_protocols(protocol_ids)
+                can_protocol.remove_protocols(protocol_ids)
     # Protocols fetching from device to cloud on startup
     elif type == "startup_fetching":
+        action = data["action"]
         protocols = data["protocols"]
         if action == "delete":
             if protocols:
-                protocol_mqtt.remove_protocols(protocols)
+                can_protocol.remove_protocols(protocols)
         if action == "add":
-            protocol_mqtt.update_protocols_on_startup(protocols)
+            can_protocol.update_protocols_on_startup(protocols)
 
 
 def gcb_init_client(client_id, username, password):
