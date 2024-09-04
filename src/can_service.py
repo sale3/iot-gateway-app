@@ -784,8 +784,7 @@ class CANListener (Listener):
                                         TIME_FORMAT, time.localtime())),
                                 protocol_data_entity.id), QOS)
                         customLogger.info(
-                            "Protocol data: " +
-                            PROTOCOL_DATA_PATTERN.format(
+                            "Protocol data: " + PROTOCOL_DATA_PATTERN.format(
                                 "{:.2f}".format(value),
                                 str(
                                     time.strftime(
