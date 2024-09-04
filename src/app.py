@@ -89,7 +89,7 @@ from threading import Thread, Event
 from queue import Queue
 from mqtt_util import MQTTConf, GcbService, \
     GCB_TEMP_TOPIC, GCB_LOAD_TOPIC, GCB_FUEL_TOPIC, GCB_STATS_TOPIC, GCB_PROTOCOL_TOPIC
-from src.can_protocol import start_protocol_mqtt, processed_ids
+from src.can_protocol import start_protocol_mqtt, processed_ids, get_data_by_id
 from config_util import ConfFlags, get_temp_interval, get_fuel_level_limit, \
     start_config_observer
 from mqtt_utils import MQTTClient
