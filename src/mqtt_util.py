@@ -66,7 +66,7 @@ import logging.config
 import paho.mqtt.client as mqtt
 from threading import Thread, Event
 from queue import Queue
-import src.protocol_mqtt as protocol_mqtt
+import src.can_protocol as protocol_mqtt
 
 logging.config.fileConfig('logging.conf')
 infoLogger = logging.getLogger('customInfoLogger')
