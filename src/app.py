@@ -251,7 +251,7 @@ def on_connect_fuel_handler(client, userdata, flags, rc, props):
             "Fuel data handler failed to establish connection with MQTT broker!")
 
 
-def on_connect_protocol_data_handler(client, userdata, flags, rc, props):
+def on_connect_protocol_data_handler(client, userdata, flags, return_code, props):
     """
     Logic executed after successfully connecting protocol data sensor to MQTT broker.
 
@@ -263,7 +263,7 @@ def on_connect_protocol_data_handler(client, userdata, flags, rc, props):
     rc: int
     props:
     """
-    if rc == 0:
+    if return_code == 0:
         infoLogger.info(
             "Protocol data handler successfully established connection with MQTT broker!")
         customLogger.info(
@@ -355,7 +355,7 @@ def collect_protocol_data(config, flag, gcb_queue):
 
 def parse_protocol_data(config, flag, protocol_data_entity, gcb_queue):
     """
-    Thread function to parse protocol data.
+    Thread function to aggregate protocol data and send it to cloud.
 
     Parameters
     ----------
