@@ -58,6 +58,8 @@ GCB_FUEL_TOPIC
     Fuel topic identifier.
 GCB_STATS_TOPIC
     Stats topic identifier.
+GCB_PROTOCOL_TOPIC
+    Protocol topic identifier.
 
 """
 import json
@@ -83,6 +85,7 @@ GCB_TEMP_TOPIC = "gateway_data/temp"
 GCB_LOAD_TOPIC = "gateway_data/load"
 GCB_FUEL_TOPIC = "gateway_data/fuel"
 GCB_STATS_TOPIC = "gateway_data/stats"
+GCB_PROTOCOL_TOPIC = "gateway_data/protocol"
 
 
 class MQTTConf:
@@ -223,17 +226,30 @@ def gcb_on_message(client, userdata, message):
     customLogger.debug(f"GATEWAY_CLOUD_BROKER RECEIVED: {str(message.payload.decode('utf-8'))}")
     data = json.loads(message.payload.decode('utf-8'))
     type = data["type"]
-    protocols = data["protocols"]
-    if type == "add":
-        can_protocol.add_protocols(protocols)
-    elif type == "remove":
-        protocol_ids = [protocol["id"] for protocol in protocols]
-        if protocol_ids:
-            can_protocol.remove_protocols(protocol_ids)
+    # Protocol assignment to the device from cloud
+    if type == "protocol_assignment":
+        action = data["action"]
+        protocols = data["protocols"]
+        if action == "add":
+            can_protocol.add_protocols(protocols)
+        if action == "remove":
+            protocol_ids = [protocol["id"] for protocol in protocols]
+            if protocol_ids:
+                can_protocol.remove_protocols(protocol_ids)
+    # Protocols fetching from device to cloud on startup
+    elif type == "startup_fetching":
+        action = data["action"]
+        protocols = data["protocols"]
+        if action == "delete":
+            if protocols:
+                can_protocol.remove_protocols(protocols)
+        if action == "add":
+            can_protocol.update_protocols_on_startup(protocols)
 
 
 def gcb_init_client(client_id, username, password):
-    """Initialize gateway-cloud broker client.
+    """
+    Initialize gateway-cloud broker client.
 
     This function is not intended to be used directly. Instead, it is implicitly called
     when publisher or subscriber are created.
@@ -259,7 +275,8 @@ def gcb_init_client(client_id, username, password):
 
 
 def gcb_init_publisher(client_id, username, password):
-    """Initialize gateway-cloud broker publisher.
+    """
+    Initialize gateway-cloud broker publisher.
 
     Parameters
     ----------
