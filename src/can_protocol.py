@@ -20,20 +20,27 @@ transport_protocol: str
     JSON key for MQTT transport protocol
 gcb_protocol_topic: str
     MQTT topic for protocols and protocol data
+gcb_protocol_startup_topic: str
+    MQTT topic for protocols and protocol data on app.py startup
+processed_ids: dict
+    Contains protocol data id which are processed as a key, values are thread and whether the thread is active or not
 """
+import time
+import threading
 import logging.config
 from src.config_util import Config, CONF_PATH
 import src.mqtt_util as mqtt_util
 from sqlalchemy import text
 from sqlalchemy.orm import sessionmaker
 from src.protocol_classes import ProtocolEntity, ProtocolDataEntity, set_up_database, create_database_engine
-
 logging.config.fileConfig('logging.conf')
 errorLogger = logging.getLogger('customErrorLogger')
 customLogger = logging.getLogger('customConsoleLogger')
 
 TRANSPORT_PROTOCOL = "tcp"
 GCB_PROTOCOL_TOPIC = "gateway/protocol"
+GCB_PROTOCOL_STARTUP_TOPIC = "gateway/protocol-startup"
+processed_ids = {}
 
 
 def connect_to_database():
@@ -112,6 +119,16 @@ def remove_protocols(protocol_ids):
     try:
         # Enable cascade delete
         session.execute(text('PRAGMA foreign_keys=ON;'))
+
+        protocol_data_entities = session.query(ProtocolDataEntity).filter(
+            ProtocolDataEntity.protocol.in_(protocol_ids)
+        ).all()
+
+        # If user removed protocol in cloud configuration, stop the thread
+        for data_entity in protocol_data_entities:
+            if data_entity.id in processed_ids:
+                processed_ids[data_entity.id]["stopped"] = True
+
         # Delete protocols
         session.query(ProtocolEntity).filter(ProtocolEntity.id.in_(protocol_ids)).delete(synchronize_session=False)
         session.commit()
@@ -122,23 +139,173 @@ def remove_protocols(protocol_ids):
         session.close()
 
 
-def main():
+def update_protocols_on_startup(protocols):
     """
-    Start Protocol MQTT app entrypoint which sets up database, reads relevant config parameters, connects client to the
-    broker, subscribes client to relevant topic and starts client loop
+    Updates protocol and protocol data databases on startup.
 
+    Parameters
+    ----------
+    protocols: list
+        List of protocols to insert/update.
     """
-    set_up_database()
-    config = Config(CONF_PATH, errorLogger, customLogger)
-    config.try_open()
+    try:
+        session = connect_to_database()
+        session.execute(text('PRAGMA foreign_keys=ON;'))
+
+        # Clear existing records
+        session.query(ProtocolEntity).delete(synchronize_session=False)
+
+        for protocol in protocols:
+            # Create a new ProtocolEntity instance
+            protocol_entity = ProtocolEntity(
+                id=protocol['id'],
+                name=protocol['name'],
+                assigned=1  # Default assigned value or modify as needed
+            )
+
+            # Add the ProtocolEntity instance to the session
+            session.add(protocol_entity)
+            session.flush()  # Flush to get the ID and ensure the entity is added
+
+            # Add associated ProtocolDataEntity records
+            for data in protocol.get('protocolData', []):
+                try:
+                    protocol_data_entity = ProtocolDataEntity(
+                        id=data['id'],  # Ensure this ID is unique
+                        aggregation_method=data['aggregationMethod'],
+                        can_id=data['canId'],
+                        divisor=data['divisor'],
+                        mode=data['mode'],
+                        multiplier=data['multiplier'],
+                        name=data['name'],
+                        num_bits=data['numBits'],
+                        offset_value=data['offsetValue'],
+                        start_bit=data['startBit'],
+                        transmit_interval=data['transmitInterval'],
+                        unit=data.get('unit'),
+                        protocol=protocol_entity.id
+                    )
+                    session.add(protocol_data_entity)
+                except Exception as e:
+                    print(f"Error adding ProtocolDataEntity: {e}")
+
+        # Commit the transaction
+        session.commit()
+    except Exception as e:
+        session.rollback()
+        print(f"An error occurred: {e}")
+    finally:
+        session.close()
+
+
+def get_data_by_can_id(can_id):
+    """
+    Function to fetch data from protocol_data_entity table based on the received can_id.
+    Used from can service module.
+
+    Parameters
+    ----------
+    can_id : int
+        CAN identifier.
+
+    Returns
+    -------
+    results : list
+        List of ProtocolDataEntity objects which have a certain CAN ID.
+    """
+    session = connect_to_database()
+    try:
+        results = session.query(ProtocolDataEntity).filter_by(can_id=can_id).all()
+    finally:
+        session.close()
+
+    return results
+
+
+def start_protocol_client(config, main_execution_flag):
+    """
+    Start Protocol MQTT subscriber client which receives data about protocol assignment/removal from the cloud.
+
+    Parameters
+    ----------
+    main_execution_flag : Event
+        Indicator for termination request for main loop.
+    config : Config
+        Enables reading parameters from config file.
+    """
     client = mqtt_util.gcb_init_subscriber(
         "protocol-client-id",
         config.gateway_cloud_broker_iot_username,
         config.gateway_cloud_broker_iot_password)
     client.connect(config.gateway_cloud_broker_address, config.gateway_cloud_broker_port, keepalive=60)
     mqtt_util.gcb_on_topic_subscribe(client, GCB_PROTOCOL_TOPIC)
-    client.loop_forever()
+    # Flag passed from app module, so MQTT client doesn't run infinitely on app shutdown.
+    while not main_execution_flag.is_set():
+        client.loop(0.1)
+    client.disconnect()
 
 
-if __name__ == "__main__":
-    main()
+def get_data_by_id(id):
+    """
+    Function to fetch data from protocol_data_entity table based on the received id.
+
+    Parameters
+    ----------
+    id : int
+        Protocol data identifier.
+
+    Returns
+    -------
+    results : ProtocolDataEntity
+        ProtocolDataEntity object which has unique id parameter.
+    """
+    session = connect_to_database()
+    try:
+        result = session.query(ProtocolDataEntity).filter_by(id=id).first()
+    finally:
+        session.close()
+
+    return result
+
+
+def start_protocol_startup_client(config):
+    """
+    Start Protocol MQTT startup publisher client which sends MQTT request to the cloud to get updated protocol data.
+
+    Parameters
+    ----------
+    config : Config
+        Enables reading parameters from config file.
+    """
+    client = mqtt_util.gcb_init_publisher("startup-protocol-client-id",
+                                          config.gateway_cloud_broker_iot_username,
+                                          config.gateway_cloud_broker_iot_password)
+    mqtt_util.gcb_connect(client, config.gateway_cloud_broker_address, config.gateway_cloud_broker_port)
+    client.publish("gateway/protocol-startup", "", 2)
+    client.loop_start()
+    # Without sleep client disconnects too fast and doesn't send MQTT message, must be a thread
+    time.sleep(1)
+    client.loop_stop()
+    client.disconnect()
+
+
+def start_protocol_mqtt(main_execution_flag):
+    """
+    Start Protocol MQTT startup module, function called from app module.
+
+    Parameters
+    ----------
+    main_execution_flag : Event
+        Indicator for termination request for main loop.
+    """
+    # Create database structure if it doesn't exist.
+    set_up_database()
+    config = Config(CONF_PATH, errorLogger, customLogger)
+    config.try_open()
+    # Start threads for MQTT clients.
+    thread1 = threading.Thread(target=start_protocol_client, args=(config, main_execution_flag, ))
+    thread2 = threading.Thread(target=start_protocol_startup_client, args=(config, ))
+    thread1.start()
+    thread2.start()
+    thread2.join()
+    thread1.join()

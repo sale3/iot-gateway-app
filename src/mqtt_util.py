@@ -238,13 +238,8 @@ def gcb_on_message(client, userdata, message):
                 can_protocol.remove_protocols(protocol_ids)
     # Protocols fetching from device to cloud on startup
     elif type == "startup_fetching":
-        action = data["action"]
         protocols = data["protocols"]
-        if action == "delete":
-            if protocols:
-                can_protocol.remove_protocols(protocols)
-        if action == "add":
-            can_protocol.update_protocols_on_startup(protocols)
+        can_protocol.update_protocols_on_startup(protocols)
 
 
 def gcb_init_client(client_id, username, password):
