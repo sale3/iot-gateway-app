@@ -268,7 +268,7 @@ def get_data_by_id(id):
     return result
 
 
-def start_protocol_startup_client(config):
+def send_update_protocol_request():
     """
     Start Protocol MQTT startup publisher client which sends MQTT request to the cloud to get updated protocol data.
 
@@ -277,6 +277,8 @@ def start_protocol_startup_client(config):
     config : Config
         Enables reading parameters from config file.
     """
+    config = Config(CONF_PATH, errorLogger, customLogger)
+    config.try_open()
     client = mqtt_util.gcb_init_publisher("startup-protocol-client-id",
                                           config.gateway_cloud_broker_iot_username,
                                           config.gateway_cloud_broker_iot_password)
@@ -304,7 +306,7 @@ def start_protocol_mqtt(main_execution_flag):
     config.try_open()
     # Start threads for MQTT clients.
     thread1 = threading.Thread(target=start_protocol_client, args=(config, main_execution_flag, ))
-    thread2 = threading.Thread(target=start_protocol_startup_client, args=(config, ))
+    thread2 = threading.Thread(target=send_update_protocol_request, args=())
     thread1.start()
     thread2.start()
     thread2.join()
