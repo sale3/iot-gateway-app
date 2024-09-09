@@ -198,6 +198,31 @@ def update_protocols_on_startup(protocols):
         session.close()
 
 
+def publish_protocol_message_to_can_module(data):
+    """
+    Send message from app module to can module.
+
+    Parameters
+    ----------
+    data : list
+        Data forwarded to sensor devices module.
+        Data is parsed in can module based on type message.
+    """
+    config = Config(CONF_PATH, errorLogger, customLogger)
+    config.try_open()
+    client = mqtt_util.gcb_init_publisher(
+        "protocol-input-publisher-client-id",
+        config.gateway_cloud_broker_iot_username,
+        config.gateway_cloud_broker_iot_password)
+    mqtt_util.gcb_connect(client, config.mqtt_broker_address, config.mqtt_broker_port)
+    client.publish("sensors/protocol-input", data, 2)
+    client.loop_start()
+    # Without sleep client disconnects too fast and doesn't send MQTT message
+    time.sleep(1)
+    client.loop_stop()
+    client.disconnect()
+
+
 def get_data_by_can_id(can_id):
     """
     Function to fetch data from protocol_data_entity table based on the received can_id.
