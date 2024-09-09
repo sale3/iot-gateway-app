@@ -240,6 +240,8 @@ def gcb_on_message(client, userdata, message):
     elif type == "startup_fetching":
         protocols = data["protocols"]
         can_protocol.update_protocols_on_startup(protocols)
+    elif type == "sync":
+        can_protocol.send_update_protocol_request()
 
 
 def gcb_init_client(client_id, username, password):
