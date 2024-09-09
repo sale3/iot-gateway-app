@@ -141,12 +141,12 @@ def remove_protocols(protocol_ids):
 
 def update_protocols_on_startup(protocols):
     """
-        Updates protocol and protocol data databases on startup.
+    Updates protocol and protocol data databases on startup.
 
-        Parameters
-        ----------
-        protocols: list
-            List of protocols to insert/update.
+    Parameters
+    ----------
+    protocols: list
+        List of protocols to insert/update.
     """
     try:
         session = connect_to_database()
