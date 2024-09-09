@@ -143,99 +143,59 @@ def remove_protocols(protocol_ids):
 
 def update_protocols_on_startup(protocols):
     """
-    Updates protocol and protocol data databases on startup.
+        Updates protocol and protocol data databases on startup.
 
-    Parameters
-    ----------
-    protocols : list
-        List of protocols to insert/update.
-    """
+        Parameters
+        ----------
+        protocols : list
+            List of protocols to insert/update.
+        """
     try:
         session = connect_to_database()
+        session.execute(text('PRAGMA foreign_keys=ON;'))
+
+        # Clear existing records
+        session.query(ProtocolEntity).delete(synchronize_session=False)
+
         for protocol in protocols:
-            protocol_id = protocol['id']
-            # Check if the protocol already exists
-            protocol_entity = session.query(ProtocolEntity).filter_by(id=protocol_id).first()
+            # Create a new ProtocolEntity instance
+            protocol_entity = ProtocolEntity(
+                id=protocol['id'],
+                name=protocol['name'],
+                assigned=1  # Default assigned value or modify as needed
+            )
 
-            if protocol_entity:
-                # Update existing protocol
-                protocol_entity.name = protocol['name']
-            else:
-                # Create new protocol
-                protocol_entity = ProtocolEntity(id=protocol_id, name=protocol['name'], assigned=1)
-                session.add(protocol_entity)
+            # Add the ProtocolEntity instance to the session
+            session.add(protocol_entity)
+            session.flush()  # Flush to get the ID and ensure the entity is added
 
-            # Process protocol data
-            for data_item in protocol.get('protocolData', []):
-                protocol_data_entity = session.query(ProtocolDataEntity).filter_by(id=data_item['id']).first()
-
-                if protocol_data_entity:
-                    # Update existing protocol data
-                    protocol_data_entity.aggregation_method = data_item['aggregationMethod']
-                    protocol_data_entity.can_id = data_item['canId']
-                    protocol_data_entity.divisor = data_item['divisor']
-                    protocol_data_entity.mode = data_item['mode']
-                    protocol_data_entity.multiplier = data_item['multiplier']
-                    protocol_data_entity.name = data_item['name']
-                    protocol_data_entity.num_bits = data_item['numBits']
-                    protocol_data_entity.offset_value = data_item['offsetValue']
-                    protocol_data_entity.start_bit = data_item['startBit']
-                    protocol_data_entity.transmit_interval = data_item['transmitInterval']
-                    protocol_data_entity.unit = data_item['unit']
-                else:
-                    # Create new protocol data
+            # Add associated ProtocolDataEntity records
+            for data in protocol.get('protocolData', []):
+                try:
                     protocol_data_entity = ProtocolDataEntity(
-                        id=data_item['id'],
-                        aggregation_method=data_item['aggregationMethod'],
-                        can_id=data_item['canId'],
-                        divisor=data_item['divisor'],
-                        mode=data_item['mode'],
-                        multiplier=data_item['multiplier'],
-                        name=data_item['name'],
-                        num_bits=data_item['numBits'],
-                        offset_value=data_item['offsetValue'],
-                        start_bit=data_item['startBit'],
-                        transmit_interval=data_item['transmitInterval'],
-                        unit=data_item['unit'],
-                        protocol=protocol_id
+                        id=data['id'],  # Ensure this ID is unique
+                        aggregation_method=data['aggregationMethod'],
+                        can_id=data['canId'],
+                        divisor=data['divisor'],
+                        mode=data['mode'],
+                        multiplier=data['multiplier'],
+                        name=data['name'],
+                        num_bits=data['numBits'],
+                        offset_value=data['offsetValue'],
+                        start_bit=data['startBit'],
+                        transmit_interval=data['transmitInterval'],
+                        unit=data.get('unit'),
+                        protocol=protocol_entity.id
                     )
                     session.add(protocol_data_entity)
+                except Exception as e:
+                    print(f"Error adding ProtocolDataEntity: {e}")
 
-            # Commit the transaction
-            try:
-                session.commit()
-            except IntegrityError as e:
-                session.rollback()
-                customLogger.error(
-                    "IntegrityError: ", e)
-            finally:
-                session.close()
-
-    except json.JSONDecodeError as e:
-        customLogger.error(
-            "Error decoding JSON message: ", e)
+        # Commit the transaction
+        session.commit()
     except Exception as e:
-        customLogger.error(
-            "An error occurred: ", e)
-
-
-def get_current_protocol_ids():
-    """
-    Returns protocol identifiers which are sent to cloud on app startup.
-
-    Returns
-    -------
-    ids : list
-        List of protocol identifiers.
-    """
-    session = connect_to_database()
-    try:
-        # Construct a select statement to get only the `id` column
-        stmt = select(ProtocolEntity.id)
-        result = session.execute(stmt)
-        # Fetch all IDs
-        ids = [row[0] for row in result.fetchall()]
-        return ids
+        session.rollback()
+        print(f"An error occurred: {e}")
     finally:
         session.close()
 
@@ -287,6 +247,29 @@ def start_protocol_client(config, main_execution_flag):
     client.disconnect()
 
 
+def get_data_by_id(id):
+    """
+    Function to fetch data from protocol_data_entity table based on the received id.
+
+    Parameters
+    ----------
+    id : int
+        Protocol data identifier.
+
+    Returns
+    ----------
+    results : ProtocolDataEntity
+        ProtocolDataEntity object which has unique id parameter.
+    """
+    session = connect_to_database()
+    try:
+        result = session.query(ProtocolDataEntity).filter_by(id=id).first()
+    finally:
+        session.close()
+
+    return result
+
+
 def start_protocol_startup_client(config):
     """
     Start Protocol MQTT startup publisher client which sends MQTT request to the cloud to get updated protocol data.
@@ -299,13 +282,8 @@ def start_protocol_startup_client(config):
     client = mqtt_util.gcb_init_publisher("startup-protocol-client-id",
                                           config.gateway_cloud_broker_iot_username,
                                           config.gateway_cloud_broker_iot_password)
-
-    protocol_ids = get_current_protocol_ids()
-    protocol_ids_formatted = {
-        "protocol_ids": protocol_ids
-    }
     mqtt_util.gcb_connect(client, config.gateway_cloud_broker_address, config.gateway_cloud_broker_port)
-    client.publish("gateway/protocol-startup", json.dumps(protocol_ids_formatted), 2)
+    client.publish("gateway/protocol-startup", "", 2)
     client.loop_start()
     # Without sleep client disconnects too fast and doesn't send MQTT message, must be a thread
     time.sleep(1)
