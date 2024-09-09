@@ -25,14 +25,12 @@ gcb_protocol_startup_topic: str
 processed_ids: dict
     Contains protocol data id which are processed as a key, values are thread and whether the thread is active or not
 """
-import json
 import time
 import threading
 import logging.config
 from src.config_util import Config, CONF_PATH
 import src.mqtt_util as mqtt_util
-from sqlalchemy import text, select
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy import text
 from sqlalchemy.orm import sessionmaker
 from src.protocol_classes import ProtocolEntity, ProtocolDataEntity, set_up_database, create_database_engine
 logging.config.fileConfig('logging.conf')
@@ -147,9 +145,9 @@ def update_protocols_on_startup(protocols):
 
         Parameters
         ----------
-        protocols : list
+        protocols: list
             List of protocols to insert/update.
-        """
+    """
     try:
         session = connect_to_database()
         session.execute(text('PRAGMA foreign_keys=ON;'))
@@ -257,7 +255,7 @@ def get_data_by_id(id):
         Protocol data identifier.
 
     Returns
-    ----------
+    -------
     results : ProtocolDataEntity
         ProtocolDataEntity object which has unique id parameter.
     """
