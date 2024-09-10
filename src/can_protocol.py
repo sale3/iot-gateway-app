@@ -26,6 +26,7 @@ processed_ids: dict
     Contains protocol data id which are processed as a key, values are thread and whether the thread is active or not
 """
 import time
+import json
 import threading
 import logging.config
 from src.config_util import Config, CONF_PATH
@@ -124,14 +125,27 @@ def remove_protocols(protocol_ids):
             ProtocolDataEntity.protocol.in_(protocol_ids)
         ).all()
 
+        # If user removed protocol from the device
+        # Input threads need to be stopped
+        protocol_data_input_ids_to_remove = []
+
         # If user removed protocol in cloud configuration, stop the thread
         for data_entity in protocol_data_entities:
             if data_entity.id in processed_ids:
                 processed_ids[data_entity.id]["stopped"] = True
+            if data_entity.mode == "INPUT":
+                protocol_data_input_ids_to_remove.append(data_entity.id)
 
         # Delete protocols
         session.query(ProtocolEntity).filter(ProtocolEntity.id.in_(protocol_ids)).delete(synchronize_session=False)
         session.commit()
+
+        # Send message to CAN module so ids are removed
+        if len(protocol_data_input_ids_to_remove) > 0:
+            message = {"type": "can_message", "action": "remove",
+                       "protocol_data_ids": protocol_data_input_ids_to_remove}
+            message_payload = json.dumps(message)
+            publish_protocol_message_to_can_module(message_payload)
     except Exception:
         # Rollback the transaction in case of error
         session.rollback()
@@ -293,7 +307,7 @@ def get_data_by_id(id):
     return result
 
 
-def start_protocol_startup_client(config):
+def send_update_protocol_request():
     """
     Start Protocol MQTT startup publisher client which sends MQTT request to the cloud to get updated protocol data.
 
@@ -302,6 +316,8 @@ def start_protocol_startup_client(config):
     config : Config
         Enables reading parameters from config file.
     """
+    config = Config(CONF_PATH, errorLogger, customLogger)
+    config.try_open()
     client = mqtt_util.gcb_init_publisher("startup-protocol-client-id",
                                           config.gateway_cloud_broker_iot_username,
                                           config.gateway_cloud_broker_iot_password)
@@ -329,7 +345,7 @@ def start_protocol_mqtt(main_execution_flag):
     config.try_open()
     # Start threads for MQTT clients.
     thread1 = threading.Thread(target=start_protocol_client, args=(config, main_execution_flag, ))
-    thread2 = threading.Thread(target=start_protocol_startup_client, args=(config, ))
+    thread2 = threading.Thread(target=send_update_protocol_request, args=())
     thread1.start()
     thread2.start()
     thread2.join()

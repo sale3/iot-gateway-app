@@ -154,13 +154,22 @@ def parse_input_protocol_data(flag, value, protocol_data_from_db, bus):
 
     interval = protocol_data_from_db.transmit_interval
     hex_string = '0x' + str(protocol_data_from_db.can_id)
-    # Create byte array from double value which will be sent to the device
-    byte_array = list(struct.pack('f', value))
 
-    msg = can.Message(
-        arbitration_id=int(hex_string, 16), data=byte_array, is_extended_id=False, is_remote_frame=False
+    value += protocol_data_from_db.offset_value
+    if protocol_data_from_db.divisor > 0:
+        value /= protocol_data_from_db.divisor
+    if protocol_data_from_db.multiplier > 0:
+        value *= protocol_data_from_db.multiplier
+    byte_array = struct.pack('d', value)
+    extracted_value = extract_bits(byte_array, protocol_data_from_db.start_bit,
+                                   protocol_data_from_db.num_bits)
+    extracted_double_value = extracted_value / 10.0
+    extracted_value_byte_array = struct.pack('d', extracted_double_value)
+    can_message = can.Message(
+        arbitration_id=int(hex_string, 16), data=extracted_value_byte_array, is_extended_id=False,
+        is_remote_frame=False
     )
-    task = bus.send_periodic(msg, interval)
+    task = bus.send_periodic(can_message, interval)
 
     # While application is still running or thread is not stopped
     while not flag.is_set() and processed_ids[protocol_data_from_db.id]["stopped"] is False:
