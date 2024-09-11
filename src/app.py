@@ -284,13 +284,11 @@ def parse_protocol_data(config, flag, protocol_data_entity, gcb_queue, client):
                 if protocol_data_entity.mode == "OUTPUT":
                     # Send data to cloud
                     GcbService.push_message(gcb_queue, GCB_PROTOCOL_TOPIC, payload)
-                    if ("engine" in protocol_data_entity.name.lower()
-                            and "temperature" in protocol_data_entity.name.lower()) and payload["value"] > 95:
-                        customLogger.info("Temperature of " + str(payload["value"])
-                                          + " C is too high! Sounding the alarm!")
+                    if ("engine temperature" in protocol_data_entity.name.lower()) and payload["value"] > 95:
+                        customLogger.info(
+                            "Temperature of " + str(payload["value"]) + " C is too high! Sounding the alarm!")
                         client.publish(TEMP_ALARM_TOPIC, True, QOS)
-                    if ("fuel" in protocol_data_entity.name.lower()
-                            and "level" in protocol_data_entity.name.lower()) and payload["value"] < 10:
+                    if ("fuel level" in protocol_data_entity.name.lower()) and payload["value"] < 10:
                         customLogger.info(
                             "Fuel level of " + str(payload["value"]) + " l is too low! Sounding the alarm!")
                         client.publish(FUEL_ALARM_TOPIC, True, QOS)
