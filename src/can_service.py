@@ -156,13 +156,16 @@ def parse_input_protocol_data(flag, value, protocol_data_from_db, bus):
     hex_string = '0x' + str(protocol_data_from_db.can_id)
 
     value += protocol_data_from_db.offset_value
-    if protocol_data_from_db.divisor > 0:
+    if protocol_data_from_db.divisor != 0:
         value /= protocol_data_from_db.divisor
-    if protocol_data_from_db.multiplier > 0:
+    if protocol_data_from_db.multiplier != 0:
         value *= protocol_data_from_db.multiplier
     byte_array = struct.pack('d', value)
     extracted_value = extract_bits(byte_array, protocol_data_from_db.start_bit,
                                    protocol_data_from_db.num_bits)
+    # Value is divided by 10.0 because the idea is to work with double values
+    # Script generates integer values (multiplied by 10)
+    # So, division by 10.0 is used to correct that problem
     extracted_double_value = extracted_value / 10.0
     extracted_value_byte_array = struct.pack('d', extracted_double_value)
     can_message = can.Message(
