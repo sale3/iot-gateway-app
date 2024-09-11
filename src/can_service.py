@@ -65,11 +65,15 @@ import paho.mqtt.client as mqtt
 import logging
 import time
 import threading
+import struct
+import json
+from threading import Thread
+import mqtt_util
 from mqtt_utils import MQTTClient
 from can.listener import Listener
 from can.interface import Bus
 from config_util import Config
-from can_protocol import get_data_by_can_id
+from can_protocol import get_data_by_can_id, get_data_by_id
 
 logging.config.fileConfig('logging.conf')
 infoLogger = logging.getLogger('customInfoLogger')
@@ -84,7 +88,8 @@ TEMP_TOPIC = "sensors/temperature"
 LOAD_TOPIC = "sensors/arm-load"
 FUEL_TOPIC = "sensors/fuel-level"
 PROTOCOL_TOPIC = "sensors/protocol"
-
+PROTOCOL_INPUT_TOPIC = "sensors/protocol-input"
+PROTOCOL_VALUE_TOPIC = "gateway/protocol-value"
 DATA_PATTERN = "[ value={} , time={} , unit={} ]"
 PROTOCOL_DATA_PATTERN = "[ value={} , time={} , data_id={} ]"
 TIME_FORMAT = "%d.%m.%Y %H:%M:%S"
@@ -126,6 +131,57 @@ TEMP_ALARM_TOPIC = "alarms/temperature"
 LOAD_ALARM_TOPIC = "alarms/load"
 FUEL_ALARM_TOPIC = "alarms/fuel"
 lock = threading.Lock()
+processed_ids = {}
+
+
+def parse_input_protocol_data(flag, value, protocol_data_from_db, bus):
+    """
+    Sends periodic CAN messages based on protocol data and user input.
+    Stop sending when the specified condition is met.
+
+    Args:
+    ----
+    flag: threading.Event
+        An event used to signal when to stop the operation.
+    value: float
+        The value to be included in the CAN message.
+    protocol_data_from_db: ProtocolDataEntity
+        Contains protocol data information.
+    bus: object
+        The CAN bus object used to send messages.
+    """
+    customLogger.debug("Thread with name " + protocol_data_from_db.name + " started!")
+
+    interval = protocol_data_from_db.transmit_interval
+    hex_string = '0x' + str(protocol_data_from_db.can_id)
+
+    value += protocol_data_from_db.offset_value
+    if protocol_data_from_db.divisor != 0:
+        value /= protocol_data_from_db.divisor
+    if protocol_data_from_db.multiplier != 0:
+        value *= protocol_data_from_db.multiplier
+    byte_array = struct.pack('d', value)
+    extracted_value = extract_bits(byte_array, protocol_data_from_db.start_bit,
+                                   protocol_data_from_db.num_bits)
+    # Value is divided by 10.0 because the idea is to work with double values
+    # Script generates integer values (multiplied by 10)
+    # So, division by 10.0 is used to correct that problem
+    extracted_double_value = extracted_value / 10.0
+    extracted_value_byte_array = struct.pack('d', extracted_double_value)
+    can_message = can.Message(
+        arbitration_id=int(hex_string, 16), data=extracted_value_byte_array, is_extended_id=False,
+        is_remote_frame=False
+    )
+    task = bus.send_periodic(can_message, interval)
+
+    # While application is still running or thread is not stopped
+    while not flag.is_set() and processed_ids[protocol_data_from_db.id]["stopped"] is False:
+        pass
+
+    # After user removed protocol from the device, delete it from processed_ids
+    del processed_ids[protocol_data_from_db.id]
+    task.stop()
+    customLogger.debug("Thread with name " + protocol_data_from_db.name + " stopped!")
 
 
 def extract_bits(byte_array, start_bit, length):
@@ -396,6 +452,63 @@ def init_mqtt_clients(
         fuel_client.set_on_message(on_message_fuel_alarm)
         fuel_client.connect()
 
+    def on_message_protocol_alarm(client, userdata, msg):
+        try:
+            payload = msg.payload.decode('utf-8')
+            data = json.loads(payload)
+            type = data["type"]
+            action = data["action"]
+
+            if type == "can_message":
+                if action == "send":
+                    data_id = data["dataId"]
+                    protocol_data_from_db = get_data_by_id(data_id)
+                    value = data["value"]
+                    customLogger.info(
+                        f"Received protocol input set message: type={type}, "
+                        f"action={action}, dataId={data_id}, value={value}")
+                    # Start a new thread which will send data periodically
+                    if protocol_data_from_db.id not in processed_ids:
+                        thread = Thread(target=parse_input_protocol_data, args=(flag, value,
+                                                                                protocol_data_from_db, bus,))
+                        processed_ids[protocol_data_from_db.id] = {"thread": thread, "stopped": False, "value": value}
+                        thread.start()
+                    customLogger.info("Received protocol input data: " + str(data))
+                elif action == "stop":
+                    # Stop data sending if user wants to
+                    data_id = data["dataId"]
+                    processed_ids[data_id]["stopped"] = True
+                elif action == "remove":
+                    # If protocol is removed from the device stop all relevant threads
+                    protocol_data_ids = data["protocol_data_ids"]
+                    for id in protocol_data_ids:
+                        if id in processed_ids:
+                            processed_ids[id]["stopped"] = True
+                elif action == "get_current_values":
+                    # Data returned to cloud so user has the latest info about sending
+                    filtered_data = [
+                        {"id": 0, "dataId": id_, "value": data["value"]}
+                        for id_, data in processed_ids.items()
+                        if not data["stopped"]
+                    ]
+                    message = json.dumps(filtered_data)
+                    gateway_client = mqtt_util.gcb_init_publisher(
+                        "protocol-input-value-publisher-client-id",
+                        config.gateway_cloud_broker_iot_username,
+                        config.gateway_cloud_broker_iot_password)
+                    mqtt_util.gcb_connect(gateway_client, config.gateway_cloud_broker_address,
+                                          config.gateway_cloud_broker_port)
+                    gateway_client.publish(PROTOCOL_VALUE_TOPIC, message, 2)
+                    gateway_client.loop_start()
+                    # Without sleep client disconnects too fast and doesn't send MQTT message
+                    time.sleep(1)
+                    gateway_client.loop_stop()
+                    gateway_client.disconnect()
+        except json.JSONDecodeError:
+            customLogger.error("Failed to decode JSON from MQTT message payload.")
+        except Exception as e:
+            customLogger.error(f"An error occurred: {e}")
+
     protocol_client = MQTTClient(
         "protocol-data-can-sensor-mqtt-client",
         transport_protocol=TRANSPORT_PROTOCOL,
@@ -413,6 +526,7 @@ def init_mqtt_clients(
     protocol_client.set_on_connect(on_connect_protocol_sensor)
     protocol_client.set_on_publish(on_publish)
     protocol_client.set_on_subscribe(on_subscribe_protocol)
+    protocol_client.set_on_message(on_message_protocol_alarm)
     protocol_client.connect()
 
     return temp_client, load_client, fuel_client, protocol_client
@@ -623,7 +737,7 @@ def on_connect_protocol_sensor(client, userdata, flags, rc, props):
             "CAN Protocol sensor successfully established connection with MQTT broker!")
         customLogger.debug(
             "CAN Protocol sensor successfully established connection with MQTT broker!")
-        client.subscribe(PROTOCOL_TOPIC, qos=QOS)
+        client.subscribe(PROTOCOL_INPUT_TOPIC, qos=QOS)
     else:
         errorLogger.error(
             "CAN Protocol sensor failed to establish connection with MQTT broker!")

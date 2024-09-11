@@ -26,6 +26,7 @@ processed_ids: dict
     Contains protocol data id which are processed as a key, values are thread and whether the thread is active or not
 """
 import time
+import json
 import threading
 import logging.config
 from src.config_util import Config, CONF_PATH
@@ -124,14 +125,27 @@ def remove_protocols(protocol_ids):
             ProtocolDataEntity.protocol.in_(protocol_ids)
         ).all()
 
+        # If user removed protocol from the device
+        # Input threads need to be stopped
+        protocol_data_input_ids_to_remove = []
+
         # If user removed protocol in cloud configuration, stop the thread
         for data_entity in protocol_data_entities:
             if data_entity.id in processed_ids:
                 processed_ids[data_entity.id]["stopped"] = True
+            if data_entity.mode == "INPUT":
+                protocol_data_input_ids_to_remove.append(data_entity.id)
 
         # Delete protocols
         session.query(ProtocolEntity).filter(ProtocolEntity.id.in_(protocol_ids)).delete(synchronize_session=False)
         session.commit()
+
+        # Send message to CAN module so ids are removed
+        if len(protocol_data_input_ids_to_remove) > 0:
+            message = {"type": "can_message", "action": "remove",
+                       "protocol_data_ids": protocol_data_input_ids_to_remove}
+            message_payload = json.dumps(message)
+            publish_protocol_message_to_can_module(message_payload)
     except Exception:
         # Rollback the transaction in case of error
         session.rollback()
@@ -196,6 +210,31 @@ def update_protocols_on_startup(protocols):
         print(f"An error occurred: {e}")
     finally:
         session.close()
+
+
+def publish_protocol_message_to_can_module(data):
+    """
+    Send message from app module to can module.
+
+    Parameters
+    ----------
+    data : list
+        Data forwarded to sensor devices module.
+        Data is parsed in can module based on type message.
+    """
+    config = Config(CONF_PATH, errorLogger, customLogger)
+    config.try_open()
+    client = mqtt_util.gcb_init_publisher(
+        "protocol-input-publisher-client-id",
+        config.gateway_cloud_broker_iot_username,
+        config.gateway_cloud_broker_iot_password)
+    mqtt_util.gcb_connect(client, config.mqtt_broker_address, config.mqtt_broker_port)
+    client.publish("sensors/protocol-input", data, 2)
+    client.loop_start()
+    # Without sleep client disconnects too fast and doesn't send MQTT message
+    time.sleep(1)
+    client.loop_stop()
+    client.disconnect()
 
 
 def get_data_by_can_id(can_id):

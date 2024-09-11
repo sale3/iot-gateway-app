@@ -214,7 +214,7 @@ def gcb_on_publish(client, userdata, result):
 def gcb_on_message(client, userdata, message):
     """Gateway-cloud broker on message handler.
 
-    This function is used for gateway-cloud broker protocol assignment information receiving.
+    This function is used for gateway-cloud broker information receiving.
 
     Parameters
     ----------
@@ -242,6 +242,9 @@ def gcb_on_message(client, userdata, message):
         can_protocol.update_protocols_on_startup(protocols)
     elif type == "sync":
         can_protocol.send_update_protocol_request()
+    elif type == "can_message":
+        str_payload = message.payload.decode('utf-8')
+        can_protocol.publish_protocol_message_to_can_module(str_payload)
 
 
 def gcb_init_client(client_id, username, password):
