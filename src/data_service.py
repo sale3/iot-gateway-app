@@ -58,9 +58,9 @@ def handle_protocol_data(protocol_data_entity, data, time_format):
     # For each info in data apply operations extracted from the database
     for value in data:
         value += protocol_data_entity.offset_value
-        if protocol_data_entity.multiplier > 0:
+        if protocol_data_entity.multiplier != 0:
             value *= protocol_data_entity.multiplier
-        if protocol_data_entity.divisor > 0:
+        if protocol_data_entity.divisor != 0:
             value /= protocol_data_entity.divisor
         if value > max_value:
             max_value = value
