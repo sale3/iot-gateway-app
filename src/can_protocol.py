@@ -11,6 +11,16 @@ add_protocols(protocols)
     Used for adding one or more protocols received from cloud to the sqlite database
 remove_protocols(protocol_ids)
     Used for removing one or more protocols based on their ids received from cloud from the sqlite database
+update_protocols_on_startup(protocols)
+    Used for updating database with info from cloud on app start
+publish_protocol_message_to_can_module(data)
+    Used for sending protocol message from app to can module
+get_data_by_can_id(can_id)
+    Used for retrieving ProtocolDataEntity objects based on CAN ID
+start_protocol_client(config, main_execution_flag)
+    Used for starting MQTT client who listens for incoming MQTT messages
+get_data_by_id(id)
+    Used for retrieving ProtocolDataEntity object based on id
 main()
     Protocol MQTT app entrypoint.
 

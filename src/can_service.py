@@ -9,16 +9,22 @@ CANListener: A class that accepts messages from the CAN bus
 
 Functions
 ---------
+parse_input_protocol_data(flag, value, protocol_data_from_db, bus)
+    Processes input data sent from cloud and calls send_periodic function
+extract_bits(byte_array, start_bit, length)
+    Extract bits from byte array based on start bit and start bit + length
 read_can(execution_flag, config_flag, init_flags, can_lock)
     Thread execution function from sensor_devices main() for CAN communication
 stop_can(notifier, bus, protocol_client)
     Used for stopping all CAN functionalities
 init_mqtt_clients(bus, config, flag)
-    Used for initializing MQTT clients that publish read CAN messages
+    Used for initializing MQTT Protocol client that publishes read CAN messages
 on_publish(topic, payload, qos)
     Event handler for published messages to a MQTT topic
 on_subscribe_protocol(client, userdata, flags, rc, props)
     Event handler for protocol client MQTT subscription
+main()
+    Can app entrypoint
 
 Constants
 ---------
@@ -550,7 +556,7 @@ class CANListener (Listener):
 
 def main():
     """
-    Start can app entrypoint.
+    Can app entrypoint.
     Initializes can_lock to prevent race conditioning.
     Initializes main_execution_flag to prevent stop the thread on app shutdown.
     Starts thread which reads received can data.

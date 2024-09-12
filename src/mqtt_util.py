@@ -233,7 +233,7 @@ def gcb_on_message(client, userdata, message):
         if action == "add":
             can_protocol.add_protocols(protocols)
         if action == "remove":
-            protocol_ids = [protocol["id"] for protocol in protocols]
+            protocol_ids = data["protocols"]
             if protocol_ids:
                 can_protocol.remove_protocols(protocol_ids)
     # Protocols fetching from device to cloud on startup
