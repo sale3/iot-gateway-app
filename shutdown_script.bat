@@ -5,7 +5,7 @@ title Windows Shutdown Script
 
 set sensors_mosquitto_window_title=Sensors Mosquitto
 set gateway_mosquitto_window_title=Gateway Mosquitto
-set sensor_dispatcher_window_title=Sensor Dispatcher
+set can_dispatcher_window_title=CAN Dispatcher
 set cloud_window_title=Cloud App
 set gateway_window_title=IoT Gateway
 set rest_window_title=REST API
@@ -18,8 +18,8 @@ if %errorlevel% equ 0 ( echo %sensors_mosquitto_window_title% shut down! )
 taskkill /FI "WINDOWTITLE eq %gateway_mosquitto_window_title%" /F >nul 2>&1
 if %errorlevel% equ 0 ( echo %gateway_mosquitto_window_title% shut down! )
 
-taskkill /FI "WINDOWTITLE eq %sensor_dispatcher_window_title%" /F >nul 2>&1
-if %errorlevel% equ 0 ( echo %sensor_dispatcher_window_title% shut down! )
+taskkill /FI "WINDOWTITLE eq %can_dispatcher_window_title%" /F >nul 2>&1
+if %errorlevel% equ 0 ( echo %can_dispatcher_window_title% shut down! )
 
 taskkill /FI "WINDOWTITLE eq %cloud_window_title%" /F >nul 2>&1
 if %errorlevel% equ 0 ( echo %cloud_window_title% shut down! )

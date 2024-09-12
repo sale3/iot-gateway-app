@@ -63,9 +63,9 @@ echo Cloud App ready!
 
 cd src
 
-echo Starting Sensors Client...
-start "Sensor Dispatcher" python.exe "sensor_devices.py"
-echo Sensors Started!
+echo Starting CAN Client...
+start "CAN Dispatcher" python.exe "can_service.py"
+echo CAN Started!
 
 echo Starting IoT Gateway...
 start "IoT Gateway" python.exe "app.py"

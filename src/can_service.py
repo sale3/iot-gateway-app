@@ -11,24 +11,14 @@ Functions
 ---------
 read_can(execution_flag, config_flag, init_flags, can_lock)
     Thread execution function from sensor_devices main() for CAN communication
-stop_can(notifier, bus, temp_client, load_client, fuel_client)
+stop_can(notifier, bus, protocol_client)
     Used for stopping all CAN functionalities
-init_mqtt_clients(bus, is_can_temp, is_can_load, is_can_fuel, config, flag)
+init_mqtt_clients(bus, config, flag)
     Used for initializing MQTT clients that publish read CAN messages
 on_publish(topic, payload, qos)
     Event handler for published messages to a MQTT topic
-on_subscribe_temp_alarm(client, userdata, flags, rc, props)
-    Event handler for subscribing to the temperature alarm MQTT topic
-on_subscribe_load_alarm(client, userdata, flags, rc, props)
-    Event handler for subscribing to the load alarm MQTT topic
-on_subscribe_fuel_alarm(client, userdata, flags, rc, props)
-    Event handler for subscribing to the fuel alarm MQTT topic
-on_connect_temp_sensor(client, userdata, flags, rc, props)
-    Even handler for subscribing to the temperature messages MQTT topic
-on_connect_load_sensor(client, userdata, flags, rc, props)
-    Even handler for subscribing to the load messages MQTT topic
-on_connect_fuel_sensor(client, userdata, flags, rc, props)
-    Even handler for subscribing to the fuel messages MQTT topic
+on_subscribe_protocol(client, userdata, flags, rc, props)
+    Event handler for protocol client MQTT subscription
 
 Constants
 ---------
@@ -36,26 +26,12 @@ app_conf_file_path: str
     Path to the configuration file
 transport_protocol: str
     JSON key for MQTT transport protocol
-temp_topic: str
-    MQTT topic for temperature data
-load_topic: str
-    MQTT topic for load data
-fuel_topic: str
-    MQTT topic for fuel data
 protocol_topic: str
     MQTT topic for protocol data
 data_pattern: str
     Format by which data is sent to MQTT brokers
 protocol_data_pattern: str
     Format by which protocol data is sent to MQTT brokers
-time_format: str
-    Format by which time is sent to MQTT brokers
-celzius: str
-    Temperature measuring unit
-kg: str
-    Load measuring unit
-_l: str
-    Fuel measuring unit
 qos: int
     Quality of service of MQTT.
 """
@@ -69,6 +45,9 @@ import struct
 import json
 from threading import Thread
 import mqtt_util
+import signal
+from multiprocessing import Event
+from signal_control import BetterSignalHandler
 from mqtt_utils import MQTTClient
 from can.listener import Listener
 from can.interface import Bus
@@ -80,48 +59,16 @@ infoLogger = logging.getLogger('customInfoLogger')
 errorLogger = logging.getLogger('customErrorLogger')
 customLogger = logging.getLogger("customConsoleLogger")
 
-CONF_FILE_PATH = "configuration/sensor_conf.json"
 APP_CONF_FILE_PATH = "configuration/app_conf.json"
-
 TRANSPORT_PROTOCOL = "tcp"
-TEMP_TOPIC = "sensors/temperature"
-LOAD_TOPIC = "sensors/arm-load"
-FUEL_TOPIC = "sensors/fuel-level"
 PROTOCOL_TOPIC = "sensors/protocol"
 PROTOCOL_INPUT_TOPIC = "sensors/protocol-input"
 PROTOCOL_VALUE_TOPIC = "gateway/protocol-value"
-DATA_PATTERN = "[ value={} , time={} , unit={} ]"
 PROTOCOL_DATA_PATTERN = "[ value={} , time={} , data_id={} ]"
 TIME_FORMAT = "%d.%m.%Y %H:%M:%S"
-CELZIUS = "C"
-KG = "kg"
-_L = "l"
-
-MODE = "mode"
-TEMP_SETTINGS = "temp_settings"
-LOAD_SETTINGS = "load_settings"
-FUEL_SETTINGS = "fuel_settings"
-CAN_GENERAL_SETTINGS = "can_general_settings"
-
-CHANNEL = "channel"
-INTERFACE = "interface"
-BITRATE = "bitrate"
-
-TEMP_SENSOR = "temp_sensor"
-ARM_SENSOR = "arm_sensor"
-ARM_MIN_T = "min_t"
-ARM_MAX_T = "max_t"
-FUEL_SENSOR = "fuel_sensor"
-FUEL_CONSUMPTION = "consumption"
-FUEL_CAPACITY = "capacity"
-FUEL_EFFICIENCY = "efficiency"
-FUEL_REFILL = "refill"
 INTERVAL = "period"
 MQTT_USER = "username"
 MQTT_PASSWORD = "password"
-_MAX = "max_val"
-_MIN = "min_val"
-_AVG = "avg_val"
 MQTT_BROKER = "mqtt_broker"
 ADDRESS = "address"
 PORT = "port"
@@ -213,7 +160,7 @@ def extract_bits(byte_array, start_bit, length):
     return integer_value
 
 
-def read_can(execution_flag, config_flag, init_flags, can_lock):
+def read_can(execution_flag, can_lock):
     """
     Thread execution function from sensor_devices main() for CAN communication
     It connects to an instance of CAN bus, which is then tied to a Notifier object, which listens to the bus for
@@ -246,41 +193,29 @@ def read_can(execution_flag, config_flag, init_flags, can_lock):
     can_listener = None
     initial = True
     notifier = None
-    temp_client = None
-    load_client = None
-    fuel_client = None
     protocol_client = None
 
     try:
         while not execution_flag.is_set():
-            if config_flag.is_set() or initial:
+            if initial:
 
                 config = Config(APP_CONF_FILE_PATH, errorLogger, customLogger)
                 config.try_open()
-                stop_can(notifier, bus, temp_client, load_client, fuel_client, protocol_client)
+                stop_can(notifier, bus, protocol_client)
 
                 interface_value = config.can_interface
                 channel_value = config.can_channel
                 bitrate_value = config.can_bitrate
 
-                is_can_temp = True if config.temp_mode == "CAN" else False
-                is_can_load = True if config.load_mode == "CAN" else False
-                is_can_fuel = True if config.fuel_mode == "CAN" else False
-
-                if (is_can_temp is False) and (
-                        is_can_load is False) and (is_can_fuel is False):
-                    break
-
                 bus = Bus(interface=interface_value,
                           channel=channel_value,
                           bitrate=bitrate_value)
-                temp_client, load_client, fuel_client, protocol_client = init_mqtt_clients(
-                    bus, is_can_temp, is_can_load, is_can_fuel, config, execution_flag)
+                protocol_client = init_mqtt_clients(
+                    bus, config, execution_flag)
                 notifier = can.Notifier(bus, [], timeout=period)
-                can_listener = CANListener(temp_client, load_client, fuel_client, protocol_client)
+                can_listener = CANListener(protocol_client)
                 notifier.add_listener(can_listener)
                 initial = False
-                config_flag.clear()
             time.sleep(period)
             period_counter += 1
 
@@ -296,15 +231,14 @@ def read_can(execution_flag, config_flag, init_flags, can_lock):
         customLogger.debug("CAN BUS has been shut down.")
 
     can_lock.acquire()
-    init_flags.can_initiated = False
     can_lock.release()
 
-    stop_can(notifier, bus, temp_client, load_client, fuel_client, protocol_client)
+    stop_can(notifier, bus, protocol_client)
     execution_flag.clear()
     customLogger.debug("CAN process shutdown!")
 
 
-def stop_can(notifier, bus, temp_client, load_client, fuel_client, protocol_client):
+def stop_can(notifier, bus, protocol_client):
     """
     Used for stopping all CAN functionalities
 
@@ -314,24 +248,12 @@ def stop_can(notifier, bus, temp_client, load_client, fuel_client, protocol_clie
             Object that listens to incoming CAN messages
         bus: can.Bus
             CAN bus
-        temp_client: mqtt_utils.MQTTClient
-            Temperature MQTT broker client
-        load_client: mqtt_utils.MQTTClient
-            Load MQTT broker client
-        fuel_client: mqtt_utils.MQTTClient
-            Fuel MQTT broker client
         protocol_client: mqtt_utils.MQTTClient
             Protocol data MQTT broker client
 
     """
     if notifier is not None:
         notifier.stop(timeout=5)
-    if temp_client is not None:
-        temp_client.disconnect()
-    if load_client is not None:
-        load_client.disconnect()
-    if fuel_client is not None:
-        fuel_client.disconnect()
     if protocol_client is not None:
         protocol_client.disconnect()
     if bus is not None:
@@ -340,9 +262,6 @@ def stop_can(notifier, bus, temp_client, load_client, fuel_client, protocol_clie
 
 def init_mqtt_clients(
         bus,
-        is_can_temp,
-        is_can_load,
-        is_can_fuel,
         config,
         flag):
     """
@@ -352,158 +271,90 @@ def init_mqtt_clients(
     ----
         bus: can.Bus
             CAN bus
-        is_can_temp: boolean
-            Flag that indicates if the configuration demands the Notifier to read CAN temperature messages
-        is_can_load: boolean
-            Flag that indicates if the configuration demands the Notifier to read CAN load messages
-        is_can_fuel: boolean
-            Flag that indicates if the configuration demands the Notifier to read CAN fuel messages
-
+        config: Config
+            Class holding configuration parameters
+            In this case, used for MQTT
+        flag: Flag
+            Used for stopping MQTT client
     """
-    temp_client = None
-    load_client = None
-    fuel_client = None
-
-    if is_can_temp:
-        temp_client = MQTTClient(
-            "temp-can-sensor-mqtt-client",
-            transport_protocol=TRANSPORT_PROTOCOL,
-            protocol_version=mqtt.MQTTv5,
-            mqtt_username=config.mqtt_broker_username,
-            mqtt_pass=config.mqtt_broker_password,
-            broker_address=config.mqtt_broker_address,
-            broker_port=config.mqtt_broker_port,
-            keepalive=config.temp_settings_interval,
-            infoLogger=infoLogger,
-            errorLogger=errorLogger,
-            flag=flag,
-            sensor_type="TEMP")
-
-        def on_message_temp_alarm(client, userdata, msg):
-            can_message = can.Message(arbitration_id=0x120,
-                                      data=[bool(msg.payload)],
-                                      is_extended_id=False,
-                                      is_remote_frame=False)
-            bus.send(msg=can_message, timeout=5)
-            customLogger.info(
-                "Temperature alarm registered! Forwarding to CAN!")
-
-        temp_client.set_on_connect(on_connect_temp_sensor)
-        temp_client.set_on_publish(on_publish)
-        temp_client.set_on_subscribe(on_subscribe_temp_alarm)
-        temp_client.set_on_message(on_message_temp_alarm)
-        temp_client.connect()
-
-    if is_can_load:
-        load_client = MQTTClient(
-            "load-can-sensor-mqtt-client",
-            transport_protocol=TRANSPORT_PROTOCOL,
-            protocol_version=mqtt.MQTTv5,
-            mqtt_username=config.mqtt_broker_username,
-            mqtt_pass=config.mqtt_broker_password,
-            broker_address=config.mqtt_broker_address,
-            broker_port=config.mqtt_broker_port,
-            keepalive=config.load_settings_interval,
-            infoLogger=infoLogger,
-            errorLogger=errorLogger,
-            flag=flag,
-            sensor_type="LOAD")
-
-        def on_message_load_alarm(client, userdata, msg):
-            can_message = can.Message(arbitration_id=0x121,
-                                      data=[bool(msg.payload)],
-                                      is_extended_id=False,
-                                      is_remote_frame=False)
-            bus.send(msg=can_message, timeout=5)
-            customLogger.info("Load alarm registered! Forwarding to CAN!")
-
-        load_client.set_on_connect(on_connect_load_sensor)
-        load_client.set_on_publish(on_publish)
-        load_client.set_on_subscribe(on_subscribe_load_alarm)
-        load_client.set_on_message(on_message_load_alarm)
-        load_client.connect()
-
-    if is_can_fuel:
-        fuel_client = MQTTClient(
-            "fuel-can-sensor-mqtt-client",
-            transport_protocol=TRANSPORT_PROTOCOL,
-            protocol_version=mqtt.MQTTv5,
-            mqtt_username=config.mqtt_broker_username,
-            mqtt_pass=config.mqtt_broker_password,
-            broker_address=config.mqtt_broker_address,
-            broker_port=config.mqtt_broker_port,
-            keepalive=config.fuel_settings_interval,
-            infoLogger=infoLogger,
-            errorLogger=errorLogger,
-            flag=flag,
-            sensor_type="FUEL")
-
-        def on_message_fuel_alarm(client, userdata, msg):
-            can_message = can.Message(arbitration_id=0x122,
-                                      data=[bool(msg.payload)],
-                                      is_extended_id=False,
-                                      is_remote_frame=False)
-            bus.send(msg=can_message, timeout=5)
-            customLogger.info("Fuel alarm registered! Forwarding to CAN!")
-
-        fuel_client.set_on_connect(on_connect_fuel_sensor)
-        fuel_client.set_on_publish(on_publish)
-        fuel_client.set_on_subscribe(on_subscribe_fuel_alarm)
-        fuel_client.set_on_message(on_message_fuel_alarm)
-        fuel_client.connect()
-
     def on_message_protocol_alarm(client, userdata, msg):
         try:
-            payload = msg.payload.decode('utf-8')
-            data = json.loads(payload)
-            type = data["type"]
-            action = data["action"]
+            topic = msg.topic
+            print("Topic is " + topic)
+            if topic == PROTOCOL_INPUT_TOPIC:
+                payload = msg.payload.decode('utf-8')
+                data = json.loads(payload)
+                type = data["type"]
+                action = data["action"]
 
-            if type == "can_message":
-                if action == "send":
-                    data_id = data["dataId"]
-                    protocol_data_from_db = get_data_by_id(data_id)
-                    value = data["value"]
-                    customLogger.info(
-                        f"Received protocol input set message: type={type}, "
-                        f"action={action}, dataId={data_id}, value={value}")
-                    # Start a new thread which will send data periodically
-                    if protocol_data_from_db.id not in processed_ids:
-                        thread = Thread(target=parse_input_protocol_data, args=(flag, value,
-                                                                                protocol_data_from_db, bus,))
-                        processed_ids[protocol_data_from_db.id] = {"thread": thread, "stopped": False, "value": value}
-                        thread.start()
-                    customLogger.info("Received protocol input data: " + str(data))
-                elif action == "stop":
-                    # Stop data sending if user wants to
-                    data_id = data["dataId"]
-                    processed_ids[data_id]["stopped"] = True
-                elif action == "remove":
-                    # If protocol is removed from the device stop all relevant threads
-                    protocol_data_ids = data["protocol_data_ids"]
-                    for id in protocol_data_ids:
-                        if id in processed_ids:
-                            processed_ids[id]["stopped"] = True
-                elif action == "get_current_values":
-                    # Data returned to cloud so user has the latest info about sending
-                    filtered_data = [
-                        {"id": 0, "dataId": id_, "value": data["value"]}
-                        for id_, data in processed_ids.items()
-                        if not data["stopped"]
-                    ]
-                    message = json.dumps(filtered_data)
-                    gateway_client = mqtt_util.gcb_init_publisher(
-                        "protocol-input-value-publisher-client-id",
-                        config.gateway_cloud_broker_iot_username,
-                        config.gateway_cloud_broker_iot_password)
-                    mqtt_util.gcb_connect(gateway_client, config.gateway_cloud_broker_address,
-                                          config.gateway_cloud_broker_port)
-                    gateway_client.publish(PROTOCOL_VALUE_TOPIC, message, 2)
-                    gateway_client.loop_start()
-                    # Without sleep client disconnects too fast and doesn't send MQTT message
-                    time.sleep(1)
-                    gateway_client.loop_stop()
-                    gateway_client.disconnect()
+                if type == "can_message":
+                    if action == "send":
+                        data_id = data["dataId"]
+                        protocol_data_from_db = get_data_by_id(data_id)
+                        value = data["value"]
+                        customLogger.info(
+                            f"Received protocol input set message: type={type}, "
+                            f"action={action}, dataId={data_id}, value={value}")
+                        # Start a new thread which will send data periodically
+                        if protocol_data_from_db.id not in processed_ids:
+                            thread = Thread(target=parse_input_protocol_data, args=(flag, value,
+                                                                                    protocol_data_from_db, bus,))
+                            processed_ids[protocol_data_from_db.id] = {"thread": thread,
+                                                                       "stopped": False, "value": value}
+                            thread.start()
+                        customLogger.info("Received protocol input data: " + str(data))
+                    elif action == "stop":
+                        # Stop data sending if user wants to
+                        data_id = data["dataId"]
+                        processed_ids[data_id]["stopped"] = True
+                    elif action == "remove":
+                        # If protocol is removed from the device stop all relevant threads
+                        protocol_data_ids = data["protocol_data_ids"]
+                        for id in protocol_data_ids:
+                            if id in processed_ids:
+                                processed_ids[id]["stopped"] = True
+                    elif action == "get_current_values":
+                        # Data returned to cloud so user has the latest info about sending
+                        filtered_data = [
+                            {"id": 0, "dataId": id_, "value": data["value"]}
+                            for id_, data in processed_ids.items()
+                            if not data["stopped"]
+                        ]
+                        message = json.dumps(filtered_data)
+                        gateway_client = mqtt_util.gcb_init_publisher(
+                            "protocol-input-value-publisher-client-id",
+                            config.gateway_cloud_broker_iot_username,
+                            config.gateway_cloud_broker_iot_password)
+                        mqtt_util.gcb_connect(gateway_client, config.gateway_cloud_broker_address,
+                                              config.gateway_cloud_broker_port)
+                        gateway_client.publish(PROTOCOL_VALUE_TOPIC, message, 2)
+                        gateway_client.loop_start()
+                        # Without sleep client disconnects too fast and doesn't send MQTT message
+                        time.sleep(1)
+                        gateway_client.loop_stop()
+                        gateway_client.disconnect()
+            elif topic == TEMP_ALARM_TOPIC:
+                can_message = can.Message(arbitration_id=0x120,
+                                          data=[bool(msg.payload)],
+                                          is_extended_id=False,
+                                          is_remote_frame=False)
+                bus.send(msg=can_message, timeout=5)
+                customLogger.info(
+                    "Temperature alarm registered! Forwarding to CAN!")
+            elif topic == LOAD_ALARM_TOPIC:
+                can_message = can.Message(arbitration_id=0x121,
+                                          data=[bool(msg.payload)],
+                                          is_extended_id=False,
+                                          is_remote_frame=False)
+                bus.send(msg=can_message, timeout=5)
+                customLogger.info("Load alarm registered! Forwarding to CAN!")
+            elif topic == FUEL_ALARM_TOPIC:
+                can_message = can.Message(arbitration_id=0x122,
+                                          data=[bool(msg.payload)],
+                                          is_extended_id=False,
+                                          is_remote_frame=False)
+                bus.send(msg=can_message, timeout=5)
+                customLogger.info("Fuel alarm registered! Forwarding to CAN!")
         except json.JSONDecodeError:
             customLogger.error("Failed to decode JSON from MQTT message payload.")
         except Exception as e:
@@ -529,7 +380,7 @@ def init_mqtt_clients(
     protocol_client.set_on_message(on_message_protocol_alarm)
     protocol_client.connect()
 
-    return temp_client, load_client, fuel_client, protocol_client
+    return protocol_client
 
 
 def on_publish(topic, payload, qos):
@@ -546,79 +397,6 @@ def on_publish(topic, payload, qos):
 
     """
     pass
-
-
-def on_subscribe_temp_alarm(client, userdata, flags, rc, props):
-    """
-    Event handler for published messages to a MQTT topic
-    Args:
-    ----
-        client: paho.mqtt.client.Client
-        userdata:
-        flags:
-        rc:
-        props:
-
-    """
-    if rc == 0:
-        infoLogger.info(
-            "CAN Temperature alarm client successfully established connection with MQTT broker!")
-        customLogger.debug(
-            "CAN Temperature alarm client successfully established connection with MQTT broker!")
-    else:
-        errorLogger.error(
-            "CAN Temperature alarm client failed to establish connection with MQTT broker!")
-        customLogger.critical(
-            "CAN Temperature alarm client failed to establish connection with MQTT broker!")
-
-
-def on_subscribe_load_alarm(client, userdata, flags, rc, props):
-    """
-    Event handler for published messages to a MQTT topic
-    Args:
-    ----
-        client: paho.mqtt.client.Client
-        userdata:
-        flags:
-        rc:
-        props:
-
-    """
-    if rc == 0:
-        infoLogger.info(
-            "CAN Load alarm client successfully established connection with MQTT broker!")
-        customLogger.debug(
-            "CAN Load alarm client successfully established connection with MQTT broker!")
-    else:
-        errorLogger.error(
-            "CAN Load alarm client failed to establish connection with MQTT broker!")
-        customLogger.critical(
-            "CAN Load alarm client failed to establish connection with MQTT broker!")
-
-
-def on_subscribe_fuel_alarm(client, userdata, flags, rc, props):
-    """
-    Event handler for published messages to a MQTT topic
-    Args:
-    ----
-        client: paho.mqtt.client.Client
-        userdata:
-        flags:
-        rc:
-        props:
-
-    """
-    if rc == 0:
-        infoLogger.info(
-            "CAN Load alarm client successfully established connection with MQTT broker!")
-        customLogger.debug(
-            "CAN Load alarm client successfully established connection with MQTT broker!")
-        # client.subscribe(FUEL_ALARM_TOPIC, qos=QOS)
-    else:
-        errorLogger.error(
-            "CAN Load alarm client failed to establish connection with MQTT broker!")
-        customLogger.critical(
-            "CAN Load alarm client failed to establish connection with MQTT broker!")
 
 
 def on_subscribe_protocol(client, userdata, flags, rc, props):
@@ -645,81 +423,6 @@ def on_subscribe_protocol(client, userdata, flags, rc, props):
             "Protocol client failed to establish connection with MQTT broker!")
 
 
-def on_connect_temp_sensor(client, userdata, flags, rc, props):
-    """
-    Event handler for published messages to a MQTT topic
-    Args:
-    ----
-        client: paho.mqtt.client.Client
-        userdata:
-        flags:
-        rc:
-        props:
-
-    """
-    if rc == 0:
-        infoLogger.info(
-            "CAN Temperature sensor successfully established connection with MQTT broker!")
-        customLogger.debug(
-            "CAN Temperature sensor successfully established connection with MQTT broker!")
-        client.subscribe(TEMP_ALARM_TOPIC, qos=QOS)
-    else:
-        errorLogger.error(
-            "CAN Temperature sensor failed to establish connection with MQTT broker!")
-        customLogger.critical(
-            "CAN Temperature sensor failed to establish connection with MQTT broker!")
-
-
-def on_connect_load_sensor(client, userdata, flags, rc, props):
-    """
-    Event handler for published messages to a MQTT topic
-    Args:
-    ----
-        client: paho.mqtt.client.Client
-        userdata:
-        flags:
-        rc:
-        props:
-
-    """
-    if rc == 0:
-        infoLogger.info(
-            "CAN Load sensor successfully established connection with MQTT broker!")
-        customLogger.debug(
-            "CAN Load sensor successfully established connection with MQTT broker!")
-        client.subscribe(LOAD_ALARM_TOPIC, qos=QOS)
-    else:
-        errorLogger.error(
-            "CAN Load sensor failed to establish connection with MQTT broker!")
-        customLogger.critical(
-            "CAN Load sensor failed to establish connection with MQTT broker!")
-
-
-def on_connect_fuel_sensor(client, userdata, flags, rc, props):
-    """
-    Event handler for published messages to a MQTT topic
-    Args:
-    ----
-        client: paho.mqtt.client.Client
-        userdata:
-        flags:
-        rc:
-        props:
-
-    """
-    if rc == 0:
-        infoLogger.info(
-            "CAN Fuel sensor successfully established connection with MQTT broker!")
-        customLogger.debug(
-            "CAN Fuel sensor successfully established connection with MQTT broker!")
-        client.subscribe(FUEL_ALARM_TOPIC, qos=QOS)
-    else:
-        errorLogger.error(
-            "CAN Fuel sensor failed to establish connection with MQTT broker!")
-        customLogger.critical(
-            "CAN Fuel sensor failed to establish connection with MQTT broker!")
-
-
 def on_connect_protocol_sensor(client, userdata, flags, rc, props):
     """
     Event handler for published messages to a MQTT topic
@@ -738,6 +441,9 @@ def on_connect_protocol_sensor(client, userdata, flags, rc, props):
         customLogger.debug(
             "CAN Protocol sensor successfully established connection with MQTT broker!")
         client.subscribe(PROTOCOL_INPUT_TOPIC, qos=QOS)
+        client.subscribe(TEMP_ALARM_TOPIC, qos=QOS)
+        client.subscribe(FUEL_ALARM_TOPIC, qos=QOS)
+        client.subscribe(LOAD_ALARM_TOPIC, qos=QOS)
     else:
         errorLogger.error(
             "CAN Protocol sensor failed to establish connection with MQTT broker!")
@@ -758,36 +464,20 @@ class CANListener (Listener):
     Methods:
     -------
         __init__(temp_client, load_client, fuel_client): Class constructor for initializing class objects
-        set_temp_client(client): Setter for the temperature MQTT broker client
-        set_load_client(client): Setter for the load MQTT broker client
-        set_fuel_client(client): Setter for the fuel MQTT broker client
+        set_protocol_client(client): Setter for the protocol MQTT broker client
         on_message_received(msg): Event handler for receiving messages from the CAN bus
     """
 
-    def __init__(self, temp_client, load_client, fuel_client, protocol_client):
+    def __init__(self, protocol_client):
         """
         Constructor for initializing CANListener object
 
         Args:
         ----
-            temp_client: MQTT temperature broker client
-            load_client: MQTT load broker client
-            fuel_client: MQTT fuel broker client
             protocol_client: MQTT protocol data broker client
 
         """
         super().__init__()
-        if temp_client is not None:
-            temp_client.connect()
-        self.temp_client = temp_client
-
-        if load_client is not None:
-            load_client.connect()
-        self.load_client = load_client
-
-        if fuel_client is not None:
-            fuel_client.connect()
-        self.fuel_client = fuel_client
 
         if protocol_client is not None:
             protocol_client.connect()
@@ -795,48 +485,6 @@ class CANListener (Listener):
 
         # counter that counts received messages
         self.message_counter = 0
-
-    def set_temp_client(self, client):
-        """
-        Setter for the temperature MQTT broker client
-
-        Args:
-        ----
-            client: MQTT temperature broker client
-
-        """
-        if client is None:
-            if self.temp_client is not None:
-                self.temp_client.disconnect()
-        self.temp_client = client
-
-    def set_load_client(self, client):
-        """
-        Setter for the load MQTT broker client
-
-        Args:
-        ----
-            client: MQTT load broker client
-
-        """
-        if client is None:
-            if self.temp_client is not None:
-                self.temp_client.disconnect()
-        self.load_client = client
-
-    def set_fuel_client(self, client):
-        """
-        Setter for the fuel MQTT broker client
-
-        Args:
-        ----
-            client: MQTT fuel broker client
-
-        """
-        if client is None:
-            if self.temp_client is not None:
-                self.temp_client.disconnect()
-        self.fuel_client = client
 
     def set_protocol_client(self, client):
         """
@@ -868,71 +516,57 @@ class CANListener (Listener):
         # msg.data is a byte array, need to turn it into a single value
         int_value = int.from_bytes(msg.data, byteorder="big", signed=True)
         value = int_value / 10.0
-        if self.temp_client is not None:
-            self.temp_client.try_reconnect()
-        if self.load_client is not None:
-            self.load_client.try_reconnect()
-        if self.fuel_client is not None:
-            self.fuel_client.try_reconnect()
         if self.protocol_client is not None:
             self.protocol_client.try_reconnect()
             # Extract CAN ID value to search for it in the database
-            hex_string_without_prefix = hex(msg.arbitration_id)[2:]
-            integer_value = int(hex_string_without_prefix, 10)
-            # Get all protocol data based on CAN ID (ProtocolDataEntity objects)
-            rows = get_data_by_can_id(integer_value)
+        hex_string_without_prefix = hex(msg.arbitration_id)[2:]
+        integer_value = int(hex_string_without_prefix, 10)
+        # Get all protocol data based on CAN ID (ProtocolDataEntity objects)
+        rows = get_data_by_can_id(integer_value)
 
-            with lock:
-                for protocol_data_entity in rows:
-                    # Only OUTPUT messages are parsed, INPUT sent from cloud
-                    if protocol_data_entity.mode == "OUTPUT":
-                        # Extract value from relevant bits (range from start bit to start bit + num of bits)
-                        extracted_value = extract_bits(msg.data, protocol_data_entity.start_bit,
-                                                       protocol_data_entity.num_bits)
-                        extracted_double_value = extracted_value / 10.0
-                        # Send message to app module via MQTT
-                        self.protocol_client.publish(
-                            PROTOCOL_TOPIC, PROTOCOL_DATA_PATTERN.format(
-                                "{:.2f}".format(extracted_double_value), str(
-                                    time.strftime(
-                                        TIME_FORMAT, time.localtime())),
-                                protocol_data_entity.id), QOS)
-                        customLogger.info(
-                            "Protocol data: " + PROTOCOL_DATA_PATTERN.format(
-                                "{:.2f}".format(value),
-                                str(
-                                    time.strftime(
-                                        TIME_FORMAT,
-                                        time.localtime())), protocol_data_entity.id))
+        with lock:
+            for protocol_data_entity in rows:
+                # Only OUTPUT messages are parsed, INPUT sent from cloud
+                if protocol_data_entity.mode == "OUTPUT":
+                    # Extract value from relevant bits (range from start bit to start bit + num of bits)
+                    extracted_value = extract_bits(msg.data, protocol_data_entity.start_bit,
+                                                   protocol_data_entity.num_bits)
+                    extracted_double_value = extracted_value / 10.0
+                    # Send message to app module via MQTT
+                    self.protocol_client.publish(
+                        PROTOCOL_TOPIC, PROTOCOL_DATA_PATTERN.format(
+                            "{:.2f}".format(extracted_double_value), str(
+                                time.strftime(
+                                    TIME_FORMAT, time.localtime())),
+                            protocol_data_entity.id), QOS)
+                    customLogger.info(
+                        "Protocol data: " + PROTOCOL_DATA_PATTERN.format(
+                            "{:.2f}".format(value),
+                            str(
+                                time.strftime(
+                                    TIME_FORMAT,
+                                    time.localtime())), protocol_data_entity.id))
 
-        if hex(msg.arbitration_id) == "0x123" and self.temp_client is not None:
-            self.temp_client.publish(
-                TEMP_TOPIC, DATA_PATTERN.format(
-                    "{:.2f}".format(value), str(
-                        time.strftime(
-                            TIME_FORMAT, time.localtime())), CELZIUS), QOS)
-            customLogger.info("Temperature: " + DATA_PATTERN.format("{:.2f}".format(value),
-                                                                    str(time.strftime(TIME_FORMAT, time.localtime())),
-                                                                    CELZIUS))
-        elif hex(msg.arbitration_id) == "0x124" and self.load_client is not None:
-            self.load_client.publish(
-                LOAD_TOPIC, DATA_PATTERN.format(
-                    "{:.2f}".format(value), str(
-                        time.strftime(
-                            TIME_FORMAT, time.localtime())), CELZIUS), QOS)
-            customLogger.info(
-                "Load: " + DATA_PATTERN.format(
-                    "{:.2f}".format(value), str(
-                        time.strftime(
-                            TIME_FORMAT, time.localtime())), KG))
-        elif hex(msg.arbitration_id) == "0x125" and self.fuel_client is not None:
-            self.fuel_client.publish(
-                FUEL_TOPIC, DATA_PATTERN.format(
-                    "{:.2f}".format(value), str(
-                        time.strftime(
-                            TIME_FORMAT, time.localtime())), CELZIUS), QOS)
-            customLogger.info(
-                "Fuel: " + DATA_PATTERN.format(
-                    "{:.2f}".format(value), str(
-                        time.strftime(
-                            TIME_FORMAT, time.localtime())), _L))
+
+def main():
+    """
+    Start can app entrypoint.
+    Initializes can_lock to prevent race conditioning.
+    Initializes main_execution_flag to prevent stop the thread on app shutdown.
+    Starts thread which reads received can data.
+    """
+    can_lock = threading.Lock()
+    main_execution_flag = Event()
+    BetterSignalHandler([signal.SIGINT,
+                         signal.SIGTERM],
+                        [main_execution_flag])
+    can_thread = threading.Thread(
+        target=read_can,
+        args=(
+            main_execution_flag,
+            can_lock,))
+    can_thread.start()
+
+
+if __name__ == '__main__':
+    main()
